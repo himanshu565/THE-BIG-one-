@@ -41,7 +41,7 @@ Backend configuration is loaded from environment variables or a local `.env` fil
 
 ```text
 APP_ENV=development
-DATABASE_URL=postgresql://localhost:5432/vectorly
+DATABASE_URL=postgresql+psycopg://localhost:5432/vectorly
 REDIS_URL=redis://localhost:6379/0
 LLM_PROVIDER=mock
 LLM_MODEL=local-development

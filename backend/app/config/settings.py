@@ -9,7 +9,7 @@ class Settings(BaseSettings):
 
     app_env: str = Field(default="development", validation_alias="APP_ENV")
     database_url: str = Field(
-        default="postgresql://localhost:5432/vectorly",
+        default="postgresql+psycopg://localhost:5432/vectorly",
         validation_alias="DATABASE_URL",
     )
     redis_url: str = Field(default="redis://localhost:6379/0", validation_alias="REDIS_URL")
