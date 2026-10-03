@@ -13,6 +13,21 @@ uvicorn app.main:app --reload
 
 The health endpoint is available at `http://localhost:8000/health`.
 
+## Project API
+
+Project CRUD endpoints are available under `/api/v1/projects`:
+
+```text
+POST   /api/v1/projects
+GET    /api/v1/projects?owner_id=7
+GET    /api/v1/projects/{project_id}
+PATCH  /api/v1/projects/{project_id}
+DELETE /api/v1/projects/{project_id}
+```
+
+Create requests require `name` and a positive `owner_id`. The `description` field
+is optional and can be set to `null` when updating a project.
+
 ## Configuration
 
 Settings are loaded from environment variables or a local `.env` file:
