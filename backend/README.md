@@ -8,11 +8,27 @@ From the `backend` directory:
 
 ```bash
 python -m pip install -r requirements.txt
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
 The health endpoint is available at `http://localhost:8000/health`.
 Interactive OpenAPI docs are available at `http://localhost:8000/docs`.
+
+## Database Migrations
+
+Alembic manages database schema migrations. Migration scripts automatically connect using `DATABASE_URL` configured in application settings:
+
+```bash
+# Apply all pending migrations to the latest version
+alembic upgrade head
+
+# Roll back one revision
+alembic downgrade -1
+
+# Generate a new migration revision from model changes
+alembic revision --autogenerate -m "describe changes"
+```
 
 ## Authentication API
 

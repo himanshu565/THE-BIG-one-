@@ -53,7 +53,7 @@ Repository functions
 SQLAlchemy models (User, Project)
     |  maps Python objects to database rows
     v
-PostgreSQL / SQLite database
+PostgreSQL / SQLite database (managed via Alembic migrations)
 ```
 
 The database session and authenticated user are supplied through FastAPI dependency injection:
@@ -69,6 +69,7 @@ This separation is intentional:
 - **Repositories** should understand persistence and queries, but not HTTP.
 - **Models** should describe database structure, not request validation.
 - **Security utilities** isolate cryptographic hashing and token signing.
+- **Alembic migrations** manage versioned schema evolution across environments.
 - **Configuration** should be loaded in one predictable place.
 
 ## 3. Why this technology stack was chosen
@@ -86,23 +87,21 @@ FastAPI was chosen because it provides:
 ### Passwords & Tokens (bcrypt & PyJWT)
 
 - **bcrypt** provides salted, slow key derivation resistant to brute-force attacks.
-- **PyJWT** generates cryptographically signed Bearer tokens with expiration timestamps, enabling stateless authentication without database lookup on every static asset or cache hit.
+- **PyJWT** generates cryptographically signed Bearer tokens with expiration timestamps, enabling stateless authentication.
 
-### Pydantic and pydantic-settings
+### SQLAlchemy & Alembic
 
-Pydantic validates external data at the application boundary. HTTP payloads are
-untrusted input, so validation belongs before repository code runs.
-
-`pydantic-settings` applies the same typed approach to configuration.
-
-### SQLAlchemy
-
-SQLAlchemy maps database tables to typed Python models, supporting PostgreSQL in production and SQLite in tests.
+- **SQLAlchemy** maps database tables to typed Python models.
+- **Alembic** manages reproducible schema migrations so production databases transition safely without data loss or manual SQL scripts. `alembic/env.py` connects dynamically using the application's runtime `DATABASE_URL`.
 
 ## 4. Project structure
 
 ```text
 backend/
+├── alembic/
+│   ├── versions/             # Migration scripts
+│   └── env.py                # Alembic environment runner
+├── alembic.ini               # Migration configuration
 ├── app/
 │   ├── api/
 │   │   ├── auth.py           # HTTP routes for registration and login
@@ -127,6 +126,7 @@ backend/
 ├── tests/
 │   ├── test_auth_api.py
 │   ├── test_health.py
+│   ├── test_migrations.py
 │   ├── test_projects_api.py
 │   ├── test_projects_repository.py
 │   ├── test_settings.py
@@ -135,6 +135,10 @@ backend/
 ```
 
 ## 5. File-by-file explanation
+
+### `alembic/env.py`
+
+Loads the application's `Settings` and configures Alembic against `settings.database_url`. Links `target_metadata = Base.metadata` so that schema migrations can be automatically generated via `alembic revision --autogenerate`.
 
 ### `app/core/security.py`
 
@@ -199,17 +203,16 @@ HTTP 201 response
 
 These are deliberate boundaries of the current backend slice:
 
-1. **Migrations are not implemented.** Tables are initialized from SQLAlchemy metadata in development/tests. A production environment needs Alembic migrations.
-2. **No pagination exists yet.** The list endpoint returns all matching projects. Pagination should be added before the dataset grows.
-3. **No service/use-case layer exists yet.** Repository calls are sufficient for simple CRUD, but multi-domain workflows will benefit from service-level orchestration.
-4. **Health is liveness only.** A readiness check should verify database connectivity.
+1. **No pagination exists yet.** The list endpoint returns all matching projects. Pagination should be added before the dataset grows.
+2. **No service/use-case layer exists yet.** Repository calls are sufficient for simple CRUD, but multi-domain workflows will benefit from service-level orchestration.
+3. **Health is liveness only.** A readiness check should verify database connectivity.
 
 ## 8. Recommended next design steps
 
 The next phases should be implemented in this order:
 
 1. [COMPLETED] Add authentication and derive the owner from the authenticated principal.
-2. Add Alembic migrations and a safe database startup/deployment process.
+2. [COMPLETED] Add Alembic migrations and a safe database startup/deployment process.
 3. Add pagination and consistent filtering to project listing.
 4. Add documents with a project foreign key.
 5. Add document upload and ingestion job boundaries.
