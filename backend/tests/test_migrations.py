@@ -43,6 +43,8 @@ def test_alembic_migrations_upgrade_and_downgrade(temp_db: str, monkeypatch: pyt
 
         assert "users" in table_names
         assert "projects" in table_names
+        assert "documents" in table_names
+        assert "document_chunks" in table_names
         assert "alembic_version" in table_names
 
         user_columns = {col["name"] for col in inspector.get_columns("users")}
@@ -50,6 +52,12 @@ def test_alembic_migrations_upgrade_and_downgrade(temp_db: str, monkeypatch: pyt
 
         project_columns = {col["name"] for col in inspector.get_columns("projects")}
         assert {"id", "name", "description", "owner_id", "created_at"}.issubset(project_columns)
+
+        doc_columns = {col["name"] for col in inspector.get_columns("documents")}
+        assert {"id", "project_id", "name", "file_type", "file_size", "status", "chunk_count"}.issubset(doc_columns)
+
+        chunk_columns = {col["name"] for col in inspector.get_columns("document_chunks")}
+        assert {"id", "document_id", "chunk_index", "content", "token_count"}.issubset(chunk_columns)
 
         engine.dispose()
 
@@ -61,6 +69,8 @@ def test_alembic_migrations_upgrade_and_downgrade(temp_db: str, monkeypatch: pyt
         downgraded_tables = set(inspector.get_table_names())
         assert "users" not in downgraded_tables
         assert "projects" not in downgraded_tables
+        assert "documents" not in downgraded_tables
+        assert "document_chunks" not in downgraded_tables
         engine.dispose()
     finally:
         get_settings.cache_clear()

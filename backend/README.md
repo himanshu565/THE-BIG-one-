@@ -61,6 +61,24 @@ DELETE /api/v1/projects/{project_id}
 - Retrieving, updating, or deleting a project by ID is strictly scoped to the project's owner (returning 404 if not found or unauthorized).
 - The `description` field is optional and can be set to `null` when updating a project.
 
+## Documents & Ingestion API
+
+Documents endpoints are scoped to owned projects under `/api/v1/projects/{project_id}/documents`:
+
+```text
+POST   /api/v1/projects/{project_id}/documents/upload
+POST   /api/v1/projects/{project_id}/documents
+GET    /api/v1/projects/{project_id}/documents
+GET    /api/v1/projects/{project_id}/documents/{document_id}
+DELETE /api/v1/projects/{project_id}/documents/{document_id}
+```
+
+- `POST .../upload` accepts a multipart file (`PDF`, `MD`, `TXT`, `CSV`), extracts content, chunks it into indexed text segments, and sets status to `ready`.
+- `POST .../` accepts JSON with `name` and `content` for direct programmatic ingestion.
+- `GET .../` lists documents for the project, supporting optional `?status=ready` filtering.
+- `GET .../{document_id}` returns document metadata and its individual indexed chunks.
+- `DELETE .../{document_id}` cascades and deletes the document and all its chunks.
+
 ## Configuration
 
 Settings are loaded from environment variables or a local `.env` file:

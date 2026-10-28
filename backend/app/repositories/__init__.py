@@ -1,5 +1,5 @@
 """Persistence repositories."""
 
-from app.repositories import projects, users
+from app.repositories import documents, projects, users
 
-__all__ = ["projects", "users"]
+__all__ = ["documents", "projects", "users"]

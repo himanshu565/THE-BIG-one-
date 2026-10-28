@@ -7,12 +7,12 @@ evolve.
 
 ## 1. What we are building
 
-Vectorly is a retrieval-aware AI infrastructure platform. Its future responsibilities
+Vectorly is a retrieval-aware AI infrastructure platform. Its responsibilities
 include:
 
 - authenticating users and managing workspaces;
 - organizing users' work into user-owned projects;
-- storing and processing documents;
+- storing, processing, and chunking documents;
 - answering questions using retrieved document context;
 - evaluating retrieval quality;
 - tracking activity and workspace settings.
@@ -31,18 +31,27 @@ GET    /api/v1/projects
 GET    /api/v1/projects/{project_id}
 PATCH  /api/v1/projects/{project_id}
 DELETE /api/v1/projects/{project_id}
+
+POST   /api/v1/projects/{project_id}/documents/upload
+POST   /api/v1/projects/{project_id}/documents
+GET    /api/v1/projects/{project_id}/documents
+GET    /api/v1/projects/{project_id}/documents/{document_id}
+DELETE /api/v1/projects/{project_id}/documents/{document_id}
 ```
 
 ## 2. System design approach
 
-The backend follows a small layered architecture:
+The backend follows a layered architecture:
 
 ```text
 HTTP request (with Bearer token)
     |
     v
 FastAPI router & dependencies (get_db, get_current_user)
-    |  validates token, parses inputs, enforces authentication & ownership
+    |  validates token, parses inputs, enforces authentication & project ownership
+    v
+Services (Ingestion & Chunking)
+    |  extracts text, generates semantic chunks, computes token estimates
     v
 Pydantic schemas
     |  defines the API contract
@@ -50,27 +59,11 @@ Pydantic schemas
 Repository functions
     |  contains database operations scoped to owner
     v
-SQLAlchemy models (User, Project)
+SQLAlchemy models (User, Project, Document, DocumentChunk)
     |  maps Python objects to database rows
     v
 PostgreSQL / SQLite database (managed via Alembic migrations)
 ```
-
-The database session and authenticated user are supplied through FastAPI dependency injection:
-
-```text
-request -> get_current_user() -> get_db() -> repository (scoped to user.id) -> response
-```
-
-This separation is intentional:
-
-- **Routers** should understand HTTP concepts such as status codes, tokens, and headers.
-- **Schemas** should describe what clients may send and what they receive.
-- **Repositories** should understand persistence and queries, but not HTTP.
-- **Models** should describe database structure, not request validation.
-- **Security utilities** isolate cryptographic hashing and token signing.
-- **Alembic migrations** manage versioned schema evolution across environments.
-- **Configuration** should be loaded in one predictable place.
 
 ## 3. Why this technology stack was chosen
 
@@ -79,7 +72,7 @@ This separation is intentional:
 FastAPI was chosen because it provides:
 
 - typed route parameters and return values;
-- automatic request validation;
+- automatic request validation and multipart file uploads (`UploadFile`);
 - generated OpenAPI documentation;
 - straightforward dependency injection (`Depends(get_current_user)`);
 - good async support for later AI and document-processing workloads.
@@ -91,8 +84,8 @@ FastAPI was chosen because it provides:
 
 ### SQLAlchemy & Alembic
 
-- **SQLAlchemy** maps database tables to typed Python models.
-- **Alembic** manages reproducible schema migrations so production databases transition safely without data loss or manual SQL scripts. `alembic/env.py` connects dynamically using the application's runtime `DATABASE_URL`.
+- **SQLAlchemy** maps database tables to typed Python models with cascading relationships.
+- **Alembic** manages reproducible schema migrations so production databases transition safely without data loss. `alembic/env.py` connects dynamically using the application's runtime `DATABASE_URL`.
 
 ## 4. Project structure
 
@@ -106,6 +99,7 @@ backend/
 │   ├── api/
 │   │   ├── auth.py           # HTTP routes for registration and login
 │   │   ├── deps.py           # Dependency injection (get_current_user)
+│   │   ├── documents.py      # HTTP routes for document upload and retrieval
 │   │   └── projects.py       # HTTP routes for authenticated project CRUD
 │   ├── config/
 │   │   └── settings.py       # Environment-backed application settings
@@ -114,18 +108,25 @@ backend/
 │   ├── db/
 │   │   └── database.py       # SQLAlchemy engine, Base, and session dependency
 │   ├── models/
+│   │   ├── document.py       # Document and DocumentChunk table mappings
 │   │   ├── project.py        # Project table mapping (with owner_id foreign key)
 │   │   └── user.py           # User table mapping
 │   ├── repositories/
+│   │   ├── documents.py      # Document persistence operations
 │   │   ├── projects.py       # Project persistence operations (owner scoped)
 │   │   └── users.py          # User persistence operations
 │   ├── schemas/
+│   │   ├── document.py       # Document request and response contracts
 │   │   ├── project.py        # Project request and response contracts
 │   │   └── user.py           # Auth request and response contracts
+│   ├── services/
+│   │   └── ingestion.py      # Text extraction and chunking pipeline
 │   └── main.py               # FastAPI application composition
 ├── tests/
 │   ├── test_auth_api.py
+│   ├── test_documents_api.py
 │   ├── test_health.py
+│   ├── test_ingestion.py
 │   ├── test_migrations.py
 │   ├── test_projects_api.py
 │   ├── test_projects_repository.py
@@ -136,92 +137,35 @@ backend/
 
 ## 5. File-by-file explanation
 
-### `alembic/env.py`
+### `app/services/ingestion.py`
 
-Loads the application's `Settings` and configures Alembic against `settings.database_url`. Links `target_metadata = Base.metadata` so that schema migrations can be automatically generated via `alembic revision --autogenerate`.
+Controls document ingestion and text segmentation:
+- `chunk_text(text, chunk_size, chunk_overlap)` segments text into coherent windows respecting paragraph and sentence boundaries.
+- `estimate_tokens(text)` estimates token size for downstream LLM context windows.
+- `extract_file_info(filename, bytes)` detects file extension and decodes text content.
+- `ingest_document(db, document, text)` commits chunk segments and updates document status to `ready`.
 
-### `app/core/security.py`
+### `app/api/documents.py`
 
-Contains the security primitives:
-- `hash_password(plain)` creates a bcrypt salt and hash.
-- `verify_password(plain, hashed)` validates incoming credentials.
-- `create_access_token(subject)` signs a JWT with user identifier and expiration.
-- `decode_access_token(token)` validates cryptographic signature and expiration.
+Handles document management:
+- Uploads multipart files or creates direct text documents.
+- Verifies that the caller owns the target project before processing.
+- Supports listing with status filtering and retrieving documents with their chunk breakdown.
+- Cascades deletion of document chunks on document removal.
 
-### `app/api/deps.py`
-
-Defines `get_current_user`:
-1. Extracts Bearer token from the `Authorization` header.
-2. Decodes token payload; raises `401 Unauthorized` if invalid or expired.
-3. Fetches user from the database; raises `401` if not found or `400` if inactive.
-4. Yields the verified `User` instance to route handlers.
-
-### `app/api/projects.py`
-
-Every project endpoint is protected with `current_user: User = Depends(get_current_user)`.
-- `create_project`: automatically sets `owner_id = current_user.id`. The caller cannot choose or spoof project ownership.
-- `list_projects`: scopes results to `owner_id = current_user.id`.
-- `get_project`, `update_project`, `delete_project`: enforces that the project belongs to `current_user.id`, returning `404` for unauthorized or nonexistent projects.
-
-### `app/repositories/projects.py`
-
-Persistence functions accept `owner_id` to enforce database query scoping.
-
-## 6. Request lifecycle example
-
-For authenticated `POST /api/v1/projects`:
-
-```text
-Client sends JSON + Authorization: Bearer <token>
-    |
-    v
-FastAPI checks Bearer token via get_current_user()
-    |
-    v
-Decodes JWT, fetches User(id=42)
-    |
-    v
-Pydantic builds ProjectCreate
-    |
-    v
-FastAPI calls get_db()
-    |
-    v
-projects.create_project(owner_id=42, ...)
-    |
-    v
-SQLAlchemy INSERT + COMMIT
-    |
-    v
-ProjectResponse serializes the result
-    |
-    v
-HTTP 201 response
-```
-
-## 7. Important current limitations
-
-These are deliberate boundaries of the current backend slice:
-
-1. **No pagination exists yet.** The list endpoint returns all matching projects. Pagination should be added before the dataset grows.
-2. **No service/use-case layer exists yet.** Repository calls are sufficient for simple CRUD, but multi-domain workflows will benefit from service-level orchestration.
-3. **Health is liveness only.** A readiness check should verify database connectivity.
-
-## 8. Recommended next design steps
+## 6. Recommended next design steps
 
 The next phases should be implemented in this order:
 
 1. [COMPLETED] Add authentication and derive the owner from the authenticated principal.
 2. [COMPLETED] Add Alembic migrations and a safe database startup/deployment process.
-3. Add pagination and consistent filtering to project listing.
-4. Add documents with a project foreign key.
-5. Add document upload and ingestion job boundaries.
-6. Add retrieval/query APIs behind an LLM-provider abstraction.
-7. Add evaluation APIs and persisted benchmark results.
-8. Add readiness checks, structured logging, and request correlation IDs.
-9. Add integration tests against PostgreSQL or a containerized database.
+3. [COMPLETED] Add documents domain with project foreign key, upload endpoint, and chunking pipeline.
+4. Add retrieval/query APIs behind an LLM-provider abstraction (hybrid BM25 + vector search preview).
+5. Add frontend integration connecting `app/page.tsx` views to the backend API.
+6. Add evaluation APIs and persisted benchmark results.
+7. Add readiness checks, structured logging, and request correlation IDs.
 
-## 9. How to run tests
+## 7. How to run tests
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest backend\tests -v
