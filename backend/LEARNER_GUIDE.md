@@ -13,7 +13,7 @@ include:
 - authenticating users and managing workspaces;
 - organizing users' work into user-owned projects;
 - storing, processing, and chunking documents;
-- answering questions using retrieved document context;
+- answering questions using hybrid retrieval (BM25 + semantic similarity with RRF) and grounded LLM synthesis;
 - evaluating retrieval quality;
 - tracking activity and workspace settings.
 
@@ -37,6 +37,9 @@ POST   /api/v1/projects/{project_id}/documents
 GET    /api/v1/projects/{project_id}/documents
 GET    /api/v1/projects/{project_id}/documents/{document_id}
 DELETE /api/v1/projects/{project_id}/documents/{document_id}
+
+POST   /api/v1/projects/{project_id}/query
+POST   /api/v1/projects/{project_id}/search
 ```
 
 ## 2. System design approach
@@ -50,11 +53,11 @@ HTTP request (with Bearer token)
 FastAPI router & dependencies (get_db, get_current_user)
     |  validates token, parses inputs, enforces authentication & project ownership
     v
-Services (Ingestion & Chunking)
-    |  extracts text, generates semantic chunks, computes token estimates
+RAG Pipeline (app/services/retrieval.py, app/services/llm.py)
+    |  BM25 ranking + Semantic ranking -> Reciprocal Rank Fusion (RRF) -> LLM answer synthesis
     v
 Pydantic schemas
-    |  defines the API contract
+    |  defines request & response contracts
     v
 Repository functions
     |  contains database operations scoped to owner
@@ -67,25 +70,16 @@ PostgreSQL / SQLite database (managed via Alembic migrations)
 
 ## 3. Why this technology stack was chosen
 
-### FastAPI
+### Hybrid Retrieval & Reciprocal Rank Fusion (RRF)
 
-FastAPI was chosen because it provides:
+- **Okapi BM25** delivers high precision on exact keywords, identifiers, and domain-specific terms.
+- **Semantic Vector Ranking** captures conceptual similarities even when phrasing differs.
+- **RRF (Reciprocal Rank Fusion)** merges both ranked lists into a stable, non-parametric unified ranking without requiring complex hyperparameter tuning.
 
-- typed route parameters and return values;
-- automatic request validation and multipart file uploads (`UploadFile`);
-- generated OpenAPI documentation;
-- straightforward dependency injection (`Depends(get_current_user)`);
-- good async support for later AI and document-processing workloads.
+### Pluggable LLM Provider Abstraction
 
-### Passwords & Tokens (bcrypt & PyJWT)
-
-- **bcrypt** provides salted, slow key derivation resistant to brute-force attacks.
-- **PyJWT** generates cryptographically signed Bearer tokens with expiration timestamps, enabling stateless authentication.
-
-### SQLAlchemy & Alembic
-
-- **SQLAlchemy** maps database tables to typed Python models with cascading relationships.
-- **Alembic** manages reproducible schema migrations so production databases transition safely without data loss. `alembic/env.py` connects dynamically using the application's runtime `DATABASE_URL`.
+- Abstract `BaseLLMProvider` decouples the API and retrieval pipeline from specific LLM vendors.
+- `MockLLMProvider` synthesizes grounded answers with citations during development and automated tests.
 
 ## 4. Project structure
 
@@ -97,10 +91,11 @@ backend/
 ├── alembic.ini               # Migration configuration
 ├── app/
 │   ├── api/
-│   │   ├── auth.py           # HTTP routes for registration and login
+│   │   ├── auth.py           # Registration and login endpoints
 │   │   ├── deps.py           # Dependency injection (get_current_user)
-│   │   ├── documents.py      # HTTP routes for document upload and retrieval
-│   │   └── projects.py       # HTTP routes for authenticated project CRUD
+│   │   ├── documents.py      # Document upload and retrieval endpoints
+│   │   ├── projects.py       # Authenticated project CRUD endpoints
+│   │   └── retrieval.py      # Hybrid RAG query and search endpoints
 │   ├── config/
 │   │   └── settings.py       # Environment-backed application settings
 │   ├── core/
@@ -109,7 +104,7 @@ backend/
 │   │   └── database.py       # SQLAlchemy engine, Base, and session dependency
 │   ├── models/
 │   │   ├── document.py       # Document and DocumentChunk table mappings
-│   │   ├── project.py        # Project table mapping (with owner_id foreign key)
+│   │   ├── project.py        # Project table mapping
 │   │   └── user.py           # User table mapping
 │   ├── repositories/
 │   │   ├── documents.py      # Document persistence operations
@@ -118,9 +113,12 @@ backend/
 │   ├── schemas/
 │   │   ├── document.py       # Document request and response contracts
 │   │   ├── project.py        # Project request and response contracts
+│   │   ├── query.py          # Query request, response, and citation schemas
 │   │   └── user.py           # Auth request and response contracts
 │   ├── services/
-│   │   └── ingestion.py      # Text extraction and chunking pipeline
+│   │   ├── ingestion.py      # Text extraction and chunking pipeline
+│   │   ├── llm.py            # LLM provider interface and mock implementation
+│   │   └── retrieval.py      # BM25, semantic similarity, and RRF ranker
 │   └── main.py               # FastAPI application composition
 ├── tests/
 │   ├── test_auth_api.py
@@ -130,6 +128,7 @@ backend/
 │   ├── test_migrations.py
 │   ├── test_projects_api.py
 │   ├── test_projects_repository.py
+│   ├── test_retrieval.py
 │   ├── test_settings.py
 │   └── test_users_repository.py
 └── requirements.txt
@@ -137,21 +136,21 @@ backend/
 
 ## 5. File-by-file explanation
 
-### `app/services/ingestion.py`
+### `app/services/retrieval.py`
 
-Controls document ingestion and text segmentation:
-- `chunk_text(text, chunk_size, chunk_overlap)` segments text into coherent windows respecting paragraph and sentence boundaries.
-- `estimate_tokens(text)` estimates token size for downstream LLM context windows.
-- `extract_file_info(filename, bytes)` detects file extension and decodes text content.
-- `ingest_document(db, document, text)` commits chunk segments and updates document status to `ready`.
+- `bm25_rank(query_tokens, corpus_tokens)`: calculates Okapi BM25 scores with document length normalization.
+- `semantic_vector_rank(query_tokens, corpus_tokens)`: calculates cosine similarity between term vectors.
+- `reciprocal_rank_fusion(bm25_order, semantic_order, total_docs)`: combines both rankings using standard RRF ($k=60$).
+- `retrieve_chunks(db, project_id, query, top_k, mode)`: executes ranking and returns structured `SourceCitation` models.
 
-### `app/api/documents.py`
+### `app/services/llm.py`
 
-Handles document management:
-- Uploads multipart files or creates direct text documents.
-- Verifies that the caller owns the target project before processing.
-- Supports listing with status filtering and retrieving documents with their chunk breakdown.
-- Cascades deletion of document chunks on document removal.
+- `generate_grounded_answer(question, sources)`: produces an answer synthesizing context from the top retrieved chunks with explicit citation references.
+
+### `app/api/retrieval.py`
+
+- `POST /api/v1/projects/{project_id}/query`: verifies project ownership, retrieves source chunks, generates grounded answer, and measures execution latency.
+- `POST /api/v1/projects/{project_id}/search`: retrieves ranked source chunks without LLM synthesis.
 
 ## 6. Recommended next design steps
 
@@ -160,7 +159,7 @@ The next phases should be implemented in this order:
 1. [COMPLETED] Add authentication and derive the owner from the authenticated principal.
 2. [COMPLETED] Add Alembic migrations and a safe database startup/deployment process.
 3. [COMPLETED] Add documents domain with project foreign key, upload endpoint, and chunking pipeline.
-4. Add retrieval/query APIs behind an LLM-provider abstraction (hybrid BM25 + vector search preview).
+4. [COMPLETED] Add retrieval/query APIs behind an LLM-provider abstraction (hybrid BM25 + vector search preview).
 5. Add frontend integration connecting `app/page.tsx` views to the backend API.
 6. Add evaluation APIs and persisted benchmark results.
 7. Add readiness checks, structured logging, and request correlation IDs.

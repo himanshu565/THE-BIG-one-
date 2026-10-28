@@ -79,6 +79,20 @@ DELETE /api/v1/projects/{project_id}/documents/{document_id}
 - `GET .../{document_id}` returns document metadata and its individual indexed chunks.
 - `DELETE .../{document_id}` cascades and deletes the document and all its chunks.
 
+## Retrieval & Grounded Query API
+
+Query endpoints run hybrid retrieval and synthesize grounded answers:
+
+```text
+POST /api/v1/projects/{project_id}/query
+POST /api/v1/projects/{project_id}/search
+```
+
+- `POST .../query`:
+  Accepts a JSON payload (`question`, `top_k`, `mode="hybrid"|"bm25"|"semantic"`). Runs BM25 and semantic ranking, combines them via Reciprocal Rank Fusion (RRF), cites the highest-signal source chunks, and returns a grounded answer.
+- `POST .../search`:
+  Returns the top-K relevant source citations without generating an LLM response.
+
 ## Configuration
 
 Settings are loaded from environment variables or a local `.env` file:
