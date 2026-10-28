@@ -28,20 +28,24 @@ def list_projects(db: Session, *, owner_id: int | None = None) -> list[Project]:
     return query.order_by(Project.created_at.desc(), Project.id.desc()).all()
 
 
-def get_project(db: Session, *, project_id: int) -> Project | None:
-    """Return one project by its identifier."""
-    return db.get(Project, project_id)
+def get_project(db: Session, *, project_id: int, owner_id: int | None = None) -> Project | None:
+    """Return one project by its identifier, optionally scoped to an owner."""
+    query = db.query(Project).filter(Project.id == project_id)
+    if owner_id is not None:
+        query = query.filter(Project.owner_id == owner_id)
+    return query.first()
 
 
 def update_project(
     db: Session,
     *,
     project_id: int,
+    owner_id: int | None = None,
     name: str | None = None,
     description: str | None | object = _UNSET,
 ) -> Project | None:
     """Update supplied project fields and return the refreshed entity."""
-    project = db.get(Project, project_id)
+    project = get_project(db, project_id=project_id, owner_id=owner_id)
     if project is None:
         return None
     if name is not None:
@@ -53,9 +57,9 @@ def update_project(
     return project
 
 
-def delete_project(db: Session, *, project_id: int) -> bool:
+def delete_project(db: Session, *, project_id: int, owner_id: int | None = None) -> bool:
     """Delete a project and report whether it existed."""
-    project = db.get(Project, project_id)
+    project = get_project(db, project_id=project_id, owner_id=owner_id)
     if project is None:
         return False
     db.delete(project)
