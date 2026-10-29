@@ -1,64 +1,65 @@
-# Vectorly frontend
+# Vectorly — Retrieval-Aware AI Infrastructure Platform
 
-The frontend prototype for the Retrieval-Aware AI Infrastructure Platform.
+Vectorly combines a high-performance FastAPI retrieval engine with a Next.js workspace for indexing documents, managing knowledge projects, and generating verified grounded answers.
 
-## Included screens
-
-- Overview dashboard with retrieval health and workspace metrics
-- Ask your data with a local grounded-answer preview
-- Documents library with search, status filtering, and upload simulation
-- Projects workspace
-- Retrieval evaluations and benchmark history
-- Activity timeline
-- Workspace settings and notification preferences
-
-The UI is intentionally frontend-only for now. All content is local mock data and all
-actions are designed to be replaced by FastAPI calls in later milestones.
-
-## Backend foundation
-
-The first FastAPI backend milestone is available in [`backend/`](./backend/).
-It currently exposes a liveness endpoint:
+## Architecture
 
 ```text
-GET http://localhost:8000/health
+Frontend (Next.js 14 + Tailwind CSS)
+    |  http://localhost:3000
+    |  (Auth JWT, Project Selector, Live Document Upload, RAG Query Bar)
+    v
+FastAPI Backend (app.main:app)
+    |  http://localhost:8000/api/v1 (CORS enabled)
+    |  ├── /auth: Register, Login, Me (JWT Bearer tokens)
+    |  ├── /projects: Authenticated workspace CRUD
+    |  ├── /projects/{id}/documents: Upload, chunking, and indexing
+    |  └── /projects/{id}/query: Hybrid retrieval (BM25 + Semantic RRF)
+    v
+PostgreSQL / SQLite Database
+    └── Managed via Alembic migrations
 ```
 
-Run it from the `backend` directory:
+## Running the Complete Platform Locally
 
-```bash
+### 1. Start the FastAPI Backend
+
+From the repository root (or `backend/` directory):
+
+```powershell
+cd backend
 python -m pip install -r requirements.txt
-uvicorn app.main:app --reload
+alembic upgrade head
+uvicorn app.main:app --reload --port 8000
 ```
 
-Run the backend test with:
+- API Base URL: `http://localhost:8000/api/v1`
+- Interactive OpenAPI Docs: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health`
 
-```bash
-pytest
-```
+### 2. Start the Next.js Frontend
 
-Backend configuration is loaded from environment variables or a local `.env` file:
+In a separate terminal from the repository root:
 
-```text
-APP_ENV=development
-DATABASE_URL=postgresql+psycopg://localhost:5432/vectorly
-REDIS_URL=redis://localhost:6379/0
-LLM_PROVIDER=mock
-LLM_MODEL=local-development
-```
-
-## Run locally
-
-```bash
+```powershell
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open `http://localhost:3000` in your browser.
+- Use the **⚡ 1-Click Demo Login** button to automatically create and authenticate a demo session (`demo@vectorly.ai`) with a preloaded starter project and sample documentation.
+- Or register your own account and create isolated project workspaces.
 
-For a production build:
+## Testing
 
-```bash
+Run the automated backend test suite (31 tests covering auth, migrations, ingestion, projects, and hybrid retrieval):
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest backend\tests -v
+```
+
+Run the frontend production build:
+
+```powershell
 npm run build
-npm run start
 ```

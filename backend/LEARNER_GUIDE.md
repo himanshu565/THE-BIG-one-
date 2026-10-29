@@ -160,7 +160,7 @@ The next phases should be implemented in this order:
 2. [COMPLETED] Add Alembic migrations and a safe database startup/deployment process.
 3. [COMPLETED] Add documents domain with project foreign key, upload endpoint, and chunking pipeline.
 4. [COMPLETED] Add retrieval/query APIs behind an LLM-provider abstraction (hybrid BM25 + vector search preview).
-5. Add frontend integration connecting `app/page.tsx` views to the backend API.
+5. [COMPLETED] Add frontend integration connecting `app/page.tsx` views to the backend API.
 6. Add evaluation APIs and persisted benchmark results.
 7. Add readiness checks, structured logging, and request correlation IDs.
 
