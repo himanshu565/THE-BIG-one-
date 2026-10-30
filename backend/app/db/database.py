@@ -14,7 +14,15 @@ def _database_url() -> str:
     return get_settings().database_url
 
 
-engine = create_engine(_database_url(), pool_pre_ping=True)
+def _create_engine():
+    url = _database_url()
+    connect_args = {}
+    if url.startswith("sqlite"):
+        connect_args["check_same_thread"] = False
+    return create_engine(url, pool_pre_ping=True, connect_args=connect_args)
+
+
+engine = _create_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
