@@ -19,7 +19,6 @@ import {
   Gauge,
   Layers3,
   LayoutDashboard,
-  LogIn,
   LogOut,
   MessageSquareText,
   MoreHorizontal,
@@ -32,7 +31,6 @@ import {
   Trash2,
   Upload,
   UploadCloud,
-  UserCheck,
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -357,7 +355,6 @@ function Documents() {
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Quick text doc modal state
   const [textDocName, setTextDocName] = useState("");
   const [textDocContent, setTextDocContent] = useState("");
 
@@ -931,10 +928,10 @@ function Projects() {
 }
 
 // ---------------------------------------------------------
-// Auth Modal (Login / Register / Quick Demo)
+// Auth Screen (Shown when user is not authenticated)
 // ---------------------------------------------------------
-function AuthModal({ onClose }: { onClose: () => void }) {
-  const { login, register, quickDemoLogin } = useAuth();
+function AuthScreen() {
+  const { login, register, quickDemoLogin, backendOnline } = useAuth();
   const [isRegister, setIsRegister] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -952,7 +949,6 @@ function AuthModal({ onClose }: { onClose: () => void }) {
       } else {
         await login(email, password);
       }
-      onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Authentication failed");
     } finally {
@@ -965,7 +961,6 @@ function AuthModal({ onClose }: { onClose: () => void }) {
     setError(null);
     try {
       await quickDemoLogin();
-      onClose();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Demo login failed");
     } finally {
@@ -974,47 +969,105 @@ function AuthModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-      <div className="w-full max-w-sm rounded-xl border border-line bg-panel p-6 shadow-2xl">
-        <h2 className="font-display text-xl font-medium text-white">
-          {isRegister ? "Create Vectorly Account" : "Sign in to Vectorly"}
-        </h2>
-        <p className="mt-1 text-xs text-muted">
-          Connect your authenticated session to the FastAPI backend.
-        </p>
+    <div className="grid-texture flex min-h-screen items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-panel/90 p-8 shadow-2xl backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-lime text-ink shadow-lg shadow-lime/20">
+            <Layers3 size={22} strokeWidth={2.4} />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-display text-xl font-semibold tracking-tight text-white">
+                vectorly
+              </span>
+              <span className="rounded border border-line px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-muted">
+                beta
+              </span>
+            </div>
+            <p className="text-[11px] text-muted">Retrieval-Aware AI Platform</p>
+          </div>
+          <div className="ml-auto">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium ${
+                backendOnline ? "bg-lime/10 text-lime" : "bg-white/[.08] text-muted"
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${backendOnline ? "bg-lime animate-pulse" : "bg-muted"}`} />
+              {backendOnline ? "API Online" : "API Offline"}
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-8 border-b border-line pb-4">
+          <h1 className="font-display text-2xl font-medium tracking-tight text-white">
+            {isRegister ? "Create an account" : "Sign in to workspace"}
+          </h1>
+          <p className="mt-1 text-xs text-muted">
+            {isRegister
+              ? "Register to start indexing documents and running hybrid RAG queries."
+              : "Enter your credentials to access your workspaces and knowledge bases."}
+          </p>
+        </div>
 
         {error && (
-          <div className="mt-4 rounded border border-red-500/30 bg-red-500/10 p-2 text-xs text-red-300">
+          <div className="mt-5 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
             {error}
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-3">
+        <div className="mt-6 flex rounded-lg border border-line bg-[#121617] p-1">
+          <button
+            type="button"
+            onClick={() => {
+              setIsRegister(false);
+              setError(null);
+            }}
+            className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
+              !isRegister ? "bg-white/[.08] text-white" : "text-muted hover:text-white"
+            }`}
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setIsRegister(true);
+              setError(null);
+            }}
+            className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
+              isRegister ? "bg-white/[.08] text-white" : "text-muted hover:text-white"
+            }`}
+          >
+            Register
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           {isRegister && (
             <div>
-              <label className="text-[11px] text-muted">Full Name</label>
+              <label className="text-xs text-muted">Full Name</label>
               <input
                 type="text"
                 placeholder="Alex Morgan"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="mt-1 w-full rounded border border-line bg-[#121617] px-3 py-2 text-xs text-white outline-none focus:border-lime/50"
+                className="mt-1.5 w-full rounded-lg border border-line bg-[#121617] px-3.5 py-2.5 text-xs text-white outline-none focus:border-lime/50"
               />
             </div>
           )}
           <div>
-            <label className="text-[11px] text-muted">Email address</label>
+            <label className="text-xs text-muted">Email address</label>
             <input
               type="email"
               required
               placeholder="alex@vectorly.ai"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1 w-full rounded border border-line bg-[#121617] px-3 py-2 text-xs text-white outline-none focus:border-lime/50"
+              className="mt-1.5 w-full rounded-lg border border-line bg-[#121617] px-3.5 py-2.5 text-xs text-white outline-none focus:border-lime/50"
             />
           </div>
           <div>
-            <label className="text-[11px] text-muted">Password (8+ chars)</label>
+            <label className="text-xs text-muted">Password (8+ chars)</label>
             <input
               type="password"
               required
@@ -1022,34 +1075,40 @@ function AuthModal({ onClose }: { onClose: () => void }) {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded border border-line bg-[#121617] px-3 py-2 text-xs text-white outline-none focus:border-lime/50"
+              className="mt-1.5 w-full rounded-lg border border-line bg-[#121617] px-3.5 py-2.5 text-xs text-white outline-none focus:border-lime/50"
             />
           </div>
+
           <button
             type="submit"
             disabled={loading}
-            className="mt-2 w-full rounded bg-lime py-2 text-xs font-semibold text-ink hover:bg-[#e2ff8c] disabled:opacity-40"
+            className="w-full rounded-lg bg-lime py-2.5 text-xs font-semibold text-ink transition hover:bg-[#e2ff8c] disabled:opacity-40"
           >
-            {loading ? "Processing..." : isRegister ? "Register Account" : "Sign In"}
+            {loading ? "Authenticating..." : isRegister ? "Create Account" : "Sign In to Workspace"}
           </button>
         </form>
 
-        <div className="mt-4 border-t border-line pt-4 text-center">
+        <div className="relative mt-6 text-center">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-line" />
+          </div>
+          <span className="relative bg-panel px-3 text-[11px] uppercase tracking-wider text-muted">
+            Or quick start
+          </span>
+        </div>
+
+        <div className="mt-5">
           <button
+            type="button"
             onClick={handleDemo}
             disabled={loading}
-            className="w-full rounded border border-lime/40 bg-lime/[.08] py-2 text-xs font-semibold text-lime hover:bg-lime/[.14]"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-lime/40 bg-lime/[.06] py-2.5 text-xs font-semibold text-lime transition hover:bg-lime/[.12] disabled:opacity-40"
           >
-            ⚡ 1-Click Demo Login
+            <Zap size={14} /> ⚡ 1-Click Instant Demo Login
           </button>
-          <div className="mt-3 flex justify-between text-[11px] text-muted">
-            <button onClick={() => setIsRegister(!isRegister)} className="hover:text-white underline">
-              {isRegister ? "Already registered? Sign in" : "Need an account? Register"}
-            </button>
-            <button onClick={onClose} className="hover:text-white">
-              Cancel
-            </button>
-          </div>
+          <p className="mt-2 text-center text-[10px] text-muted">
+            Auto-provisions a demo user, starter project, and pre-indexed sample docs.
+          </p>
         </div>
       </div>
     </div>
@@ -1122,9 +1181,27 @@ function Settings() {
 // Root Layout / Main Component
 // ---------------------------------------------------------
 export default function Home() {
-  const { user, backendOnline, logout } = useAuth();
+  const { user, loading, backendOnline, logout } = useAuth();
   const [activeView, setActiveView] = useState<View>("Overview");
-  const [showAuthModal, setShowAuthModal] = useState(false);
+
+  if (loading) {
+    return (
+      <div className="grid-texture flex min-h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-lime text-ink shadow-lg shadow-lime/20">
+            <Layers3 size={22} className="animate-pulse" />
+          </div>
+          <p className="font-display text-xs text-muted tracking-wide">
+            Initializing Vectorly workspace...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthScreen />;
+  }
 
   const viewContent = {
     Overview: <Overview setView={setActiveView} />,
@@ -1147,8 +1224,6 @@ export default function Home() {
 
   return (
     <main className="grid-texture min-h-screen lg:flex">
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
-
       <aside className="flex w-full shrink-0 flex-col border-b border-line bg-[#121617]/90 px-4 py-5 lg:min-h-screen lg:w-[238px] lg:border-b-0 lg:border-r">
         <div className="flex items-center gap-2 px-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-lime text-ink">
@@ -1220,27 +1295,18 @@ export default function Home() {
           />
 
           <div className="mt-5 border-t border-line px-3 pt-5">
-            {user ? (
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-lime text-xs font-semibold text-ink">
-                  {user.full_name ? user.full_name.slice(0, 2).toUpperCase() : "U"}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium">{user.full_name || "User"}</p>
-                  <p className="truncate text-[11px] text-muted">{user.email}</p>
-                </div>
-                <button onClick={logout} title="Sign out" className="text-muted hover:text-white">
-                  <LogOut size={16} />
-                </button>
+            <div className="flex items-center gap-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-lime text-xs font-semibold text-ink">
+                {user.full_name ? user.full_name.slice(0, 2).toUpperCase() : "U"}
               </div>
-            ) : (
-              <button
-                onClick={() => setShowAuthModal(true)}
-                className="flex w-full items-center justify-center gap-2 rounded bg-lime/[.1] py-2 text-xs font-semibold text-lime hover:bg-lime/[.2]"
-              >
-                <LogIn size={14} /> Sign in / Register
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium">{user.full_name || "User"}</p>
+                <p className="truncate text-[11px] text-muted">{user.email}</p>
+              </div>
+              <button onClick={logout} title="Sign out" className="text-muted hover:text-white">
+                <LogOut size={16} />
               </button>
-            )}
+            </div>
           </div>
         </div>
       </aside>
@@ -1259,24 +1325,15 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
-            {!user ? (
+            <div className="flex items-center gap-2 text-xs text-muted">
+              <span className="hidden sm:inline text-white font-medium">{user.email}</span>
               <button
-                onClick={() => setShowAuthModal(true)}
-                className="flex items-center gap-1.5 rounded-md bg-lime px-3 py-1.5 text-xs font-semibold text-ink hover:bg-[#e2ff8c]"
+                onClick={logout}
+                className="rounded border border-line px-2.5 py-1 text-xs hover:text-white transition"
               >
-                <UserCheck size={14} /> Sign In
+                Sign Out
               </button>
-            ) : (
-              <div className="flex items-center gap-2 text-xs text-muted">
-                <span className="hidden sm:inline text-white font-medium">{user.email}</span>
-                <button
-                  onClick={logout}
-                  className="rounded border border-line px-2 py-1 hover:text-white"
-                >
-                  Sign Out
-                </button>
-              </div>
-            )}
+            </div>
           </div>
         </header>
 
