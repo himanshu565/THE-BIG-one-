@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:ui": "node scripts/test-ui-buttons.mjs && node scripts/test-ui-interactions.mjs",
+    "test": "npm run test:ui"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

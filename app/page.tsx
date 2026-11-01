@@ -607,7 +607,7 @@ function Documents() {
                 <button
                   onClick={() => handleDelete(doc.id)}
                   title="Delete document"
-                  className="hidden text-muted hover:text-red-400 md:block"
+                  className="text-muted hover:text-red-400 transition"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -1336,6 +1336,30 @@ export default function Home() {
             </div>
           </div>
         </header>
+
+        {/* Mobile Navigation Strip */}
+        <div className="flex gap-2 overflow-x-auto border-b border-line bg-[#121617]/95 px-4 py-2.5 lg:hidden scrollbar-none">
+          {[
+            { id: "Overview", icon: LayoutDashboard },
+            { id: "Ask your data", icon: MessageSquareText },
+            { id: "Documents", icon: FileText },
+            { id: "Projects", icon: FolderKanban },
+            { id: "Evaluations", icon: BarChart3 },
+            { id: "Activity", icon: Activity },
+            { id: "Settings", icon: Settings2 },
+          ].map(({ id, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveView(id as View)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                activeView === id ? "bg-lime text-ink font-semibold" : "text-muted hover:text-white hover:bg-white/[.04]"
+              }`}
+            >
+              <Icon size={14} />
+              <span>{id}</span>
+            </button>
+          ))}
+        </div>
 
         <div className="mx-auto max-w-[1240px] px-5 py-8 sm:px-8 sm:py-10">
           {viewContent[activeView]}
