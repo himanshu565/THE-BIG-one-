@@ -1,7 +1,11 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+_DEFAULT_DB_URL = f"sqlite:///{(_BACKEND_DIR / 'vectorly.db').as_posix()}"
 
 
 class Settings(BaseSettings):
@@ -9,7 +13,7 @@ class Settings(BaseSettings):
 
     app_env: str = Field(default="development", validation_alias="APP_ENV")
     database_url: str = Field(
-        default="postgresql+psycopg://localhost:5432/vectorly",
+        default=_DEFAULT_DB_URL,
         validation_alias="DATABASE_URL",
     )
     redis_url: str = Field(default="redis://localhost:6379/0", validation_alias="REDIS_URL")
