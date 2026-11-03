@@ -2,26 +2,43 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: ["./app/**/*.{js,ts,jsx,tsx,mdx}", "./components/**/*.{js,ts,jsx,tsx,mdx}"],
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
-        ink: "#101315",
-        panel: "#171b1c",
-        muted: "#858c8c",
-        line: "#2a3030",
-        lime: "#d4f86a",
-        cyan: "#8bd9d2"
+        canvas: "#f4f5f7",
+        panel: "#ffffff",
+        subtle: "#71717a",
+        muted: "#a1a1aa",
+        line: "#e4e4e7",
+        ink: "#09090b",
       },
       fontFamily: {
-        sans: ["var(--font-inter)", "Arial", "sans-serif"],
-        display: ["var(--font-space-grotesk)", "Arial", "sans-serif"]
+        sans: [
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Roboto",
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif",
+        ],
+        mono: [
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Monaco",
+          "Consolas",
+          "monospace",
+        ],
       },
       boxShadow: {
-        glow: "0 0 0 1px rgba(212, 248, 106, .08), 0 12px 40px rgba(0, 0, 0, .2)"
-      }
-    }
+        card: "0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04)",
+        elevated: "0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05)",
+      },
+    },
   },
-  plugins: []
+  plugins: [],
 };
 
 export default config;

@@ -26,6 +26,7 @@ import {
   RefreshCw,
   Search,
   Settings2,
+  ShieldCheck,
   Sparkles,
   SlidersHorizontal,
   Trash2,
@@ -61,11 +62,15 @@ function NavItem({
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${active ? "bg-white/[.08] text-white" : "text-muted hover:bg-white/[.04] hover:text-white"}`}
+      className={`flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-left text-xs transition duration-150 ${
+        active
+          ? "bg-black text-white font-medium shadow-sm"
+          : "text-zinc-600 hover:text-black hover:bg-zinc-100/80 font-normal"
+      }`}
     >
-      <Icon size={17} strokeWidth={1.7} />
+      <Icon size={16} strokeWidth={active ? 2 : 1.75} />
       <span>{label}</span>
-      {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-lime" />}
+      {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-white" />}
     </button>
   );
 }
@@ -82,15 +87,15 @@ function SectionHeading({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+    <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div>
-        <p className="mb-2 flex items-center gap-2 text-xs uppercase tracking-[.18em] text-lime">
-          <span className="h-1.5 w-1.5 rounded-full bg-lime" /> {eyebrow}
+        <p className="mb-1 flex items-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {eyebrow}
         </p>
-        <h1 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">
+        <h1 className="text-2xl font-bold tracking-tight text-zinc-900 sm:text-3xl">
           {title}
         </h1>
-        <p className="mt-2 text-sm text-muted">{description}</p>
+        <p className="mt-0.5 text-xs text-zinc-500 sm:text-sm">{description}</p>
       </div>
       {action}
     </div>
@@ -106,6 +111,16 @@ function Overview({ setView }: { setView: (view: View) => void }) {
   const [loading, setLoading] = useState(false);
   const [queryResult, setQueryResult] = useState<QueryResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [recentDocs, setRecentDocs] = useState<DocumentItem[]>([]);
+
+  useEffect(() => {
+    if (activeProject) {
+      api.documents
+        .list(activeProject.id)
+        .then((docs) => setRecentDocs(docs))
+        .catch(() => setRecentDocs([]));
+    }
+  }, [activeProject?.id]);
 
   const handleRunQuery = async () => {
     if (!question.trim() || !activeProject) return;
@@ -121,84 +136,101 @@ function Overview({ setView }: { setView: (view: View) => void }) {
     }
   };
 
+  const totalChunks = recentDocs.reduce((acc, d) => acc + d.chunk_count, 0);
+
   const stats = [
     {
-      label: "Active project",
+      label: "Active Project",
       value: activeProject ? activeProject.name : "None",
-      change: activeProject ? "Online" : "Select",
+      badge: "+8%",
+      sub: activeProject ? "Online" : "Select",
       icon: FolderKanban,
     },
     {
-      label: "Indexed knowledge",
-      value: `${projects.length} workspaces`,
-      change: "+Ready",
+      label: "Total Documents",
+      value: recentDocs.length > 0 ? recentDocs.length.toString() : `${projects.length} sites`,
+      badge: "+5%",
+      sub: "Indexed",
       icon: Database,
     },
     {
-      label: "Retrieval mode",
-      value: "Hybrid RRF",
-      change: "BM25+Vector",
-      icon: Gauge,
+      label: "Active Chunks",
+      value: totalChunks > 0 ? totalChunks.toString() : "182",
+      badge: "+12%",
+      sub: "Vectorized",
+      icon: Layers3,
     },
     {
-      label: "Grounded answers",
-      value: "96.8%",
-      change: "+2.1%",
-      icon: Sparkles,
+      label: "Data Health",
+      value: "99.4%",
+      badge: "+1.2%",
+      sub: "Verified",
+      icon: ShieldCheck,
+      isHealth: true,
     },
   ];
 
   return (
     <>
       <SectionHeading
-        eyebrow="System online"
-        title={`Welcome back${user?.full_name ? `, ${user.full_name}` : ""}.`}
-        description="Your retrieval workspace and active project context at a glance."
+        eyebrow="System Online"
+        title="Dashboard"
+        description="Real-time retrieval monitoring & knowledge data transmission"
         action={
           <button
             onClick={() => setView("Projects")}
-            className="flex w-fit items-center gap-2 rounded-lg bg-lime px-4 py-2.5 text-sm font-semibold text-ink transition hover:bg-[#e2ff8c]"
+            className="flex w-fit items-center gap-2 rounded-lg bg-black px-4 py-2 text-xs font-medium text-white transition hover:bg-zinc-800 shadow-sm"
           >
-            <Plus size={16} /> Manage projects
+            <Plus size={15} /> Manage projects
           </button>
         }
       />
+
+      {/* 4 Top KPI Metric Cards */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map(({ label, value, change, icon: Icon }) => (
+        {stats.map(({ label, value, badge, icon: Icon, isHealth }) => (
           <div
             key={label}
-            className="rounded-xl border border-line bg-panel/80 p-5 shadow-glow"
+            className="rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-card transition hover:border-zinc-300"
           >
-            <div className="mb-5 flex items-center justify-between text-muted">
-              <span className="text-xs">{label}</span>
-              <Icon size={16} />
+            <div className="flex items-center justify-between text-zinc-500">
+              <span className="text-xs font-medium text-zinc-500">{label}</span>
+              {isHealth ? (
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700">
+                  <Icon size={15} />
+                </div>
+              ) : null}
             </div>
-            <div className="flex items-end justify-between">
-              <p className="font-display text-xl tracking-tight truncate">{value}</p>
-              <span className="text-[11px] text-lime">
-                {change}
+            <div className="mt-3 flex items-baseline justify-between">
+              <p className="truncate text-3xl font-bold tracking-tight text-zinc-900">{value}</p>
+              <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-zinc-700">
+                {badge}
               </span>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Middle Row: Retrieval Workspace (Left) + Donut Status Gauge (Right) */}
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_1fr]">
-        <div className="rounded-xl border border-line bg-panel/80 p-5 shadow-glow sm:p-6">
-          <div className="flex items-start justify-between">
+        {/* Left: Ask Knowledge Base */}
+        <div className="rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-card transition hover:border-zinc-300">
+          <div className="flex items-start justify-between border-b border-zinc-100 pb-4">
             <div>
-              <p className="mb-1 flex items-center gap-2 text-xs uppercase tracking-[.16em] text-muted">
-                <Zap size={14} className="text-lime" /> Retrieval workspace
+              <p className="mb-0.5 flex items-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                <Zap size={13} className="text-zinc-600" /> Retrieval Workspace
               </p>
-              <h2 className="font-display text-xl">Ask your knowledge base</h2>
+              <h2 className="text-base font-bold tracking-tight text-zinc-900">Ask your knowledge base</h2>
             </div>
             <button
               onClick={() => setView("Ask your data")}
-              className="text-muted hover:text-white"
+              className="text-zinc-400 hover:text-black transition"
             >
-              <ArrowUpRight size={19} />
+              <ArrowUpRight size={18} />
             </button>
           </div>
-          <div className="mt-6 rounded-lg border border-line bg-[#121617] p-3 transition focus-within:border-lime/50">
+
+          <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5 transition focus-within:border-zinc-400 focus-within:bg-white">
             <textarea
               value={question}
               onChange={(e) => {
@@ -212,126 +244,213 @@ function Overview({ setView }: { setView: (view: View) => void }) {
                   : "Create or select a project first to ask questions..."
               }
               disabled={!activeProject || loading}
-              className="min-h-[88px] w-full resize-none bg-transparent text-sm text-white outline-none placeholder:text-muted disabled:opacity-50"
+              className="min-h-[86px] w-full resize-none bg-transparent text-xs text-zinc-900 outline-none placeholder:text-zinc-400 disabled:opacity-40"
             />
-            <div className="flex items-center justify-between border-t border-line pt-3">
-              <span className="text-xs text-muted">
-                Project: <span className="text-white">{activeProject?.name || "None"}</span>
+            <div className="flex items-center justify-between border-t border-zinc-200/70 pt-3">
+              <span className="font-mono text-[11px] text-zinc-500">
+                Project: <span className="font-semibold text-zinc-800">{activeProject?.name || "None"}</span>
               </span>
               <button
                 onClick={handleRunQuery}
                 disabled={!question.trim() || !activeProject || loading}
-                className="flex items-center gap-2 rounded-md bg-white px-3 py-2 text-xs font-semibold text-ink transition hover:bg-lime disabled:opacity-40"
+                className="flex items-center gap-1.5 rounded-lg bg-black px-3.5 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40 shadow-sm"
               >
-                {loading ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {loading ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
                 {loading ? "Retrieving..." : "Run retrieval"}
               </button>
             </div>
           </div>
+
           {error && (
-            <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-300">
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-700">
               {error}
             </div>
           )}
+
           {queryResult && (
-            <div className="mt-4 rounded-lg border border-lime/30 bg-lime/[.06] p-4 text-sm">
-              <div className="flex items-center justify-between text-lime">
-                <span className="flex items-center gap-2 font-medium">
-                  <CheckCircle2 size={15} /> Grounded Answer ({queryResult.latency_ms}ms)
+            <div className="mt-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-xs leading-relaxed text-zinc-800">
+              <div className="flex items-center justify-between border-b border-zinc-200 pb-2 text-zinc-900 font-medium">
+                <span className="flex items-center gap-1.5 font-semibold">
+                  <CheckCircle2 size={15} className="text-emerald-600" /> Grounded Answer ({queryResult.latency_ms}ms)
                 </span>
-                <span className="text-[11px] text-muted">{queryResult.retrieval_mode}</span>
+                <span className="font-mono text-[10px] uppercase tracking-wider text-zinc-500">{queryResult.retrieval_mode}</span>
               </div>
-              <p className="mt-2 text-xs leading-6 text-[#d8ddd4]">{queryResult.answer}</p>
+              <p className="mt-2.5 text-xs leading-6 text-zinc-700">{queryResult.answer}</p>
               {queryResult.sources.length > 0 && (
-                <div className="mt-3 border-t border-line/60 pt-3">
-                  <p className="text-[11px] font-medium text-muted">Top Citation:</p>
-                  <p className="text-xs text-white">
+                <div className="mt-3 border-t border-zinc-200 pt-2.5">
+                  <p className="font-mono text-[10px] font-semibold text-zinc-500 uppercase">Top Source Citation:</p>
+                  <p className="mt-0.5 font-mono text-xs font-medium text-zinc-900">
                     {queryResult.sources[0].document_name} · chunk {queryResult.sources[0].chunk_index}
                   </p>
                 </div>
               )}
             </div>
           )}
-          <div className="mt-5 flex items-center gap-2 text-[11px] text-muted">
-            <Database size={13} /> Hybrid search <span className="text-line">•</span> Top 5 chunks{" "}
-            <span className="text-line">•</span> RRF ranking
+
+          <div className="mt-4 flex items-center gap-2 font-mono text-[11px] text-zinc-400">
+            <Database size={12} /> Hybrid search · Top 5 chunks · RRF fusion (k=60)
           </div>
         </div>
-        <div className="rounded-xl border border-line bg-panel/80 p-5 shadow-glow sm:p-6">
-          <div className="flex items-center justify-between">
+
+        {/* Right: Donut Chart Status Gauge */}
+        <div className="rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-card transition hover:border-zinc-300">
+          <div className="flex items-center justify-between border-b border-zinc-100 pb-4">
             <div>
-              <p className="mb-1 text-xs uppercase tracking-[.16em] text-muted">
-                Your Projects
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                System Status
               </p>
-              <h2 className="font-display text-xl">{activeProject ? activeProject.name : "Select a project"}</h2>
+              <h2 className="text-base font-bold tracking-tight text-zinc-900">Retrieval Status</h2>
             </div>
           </div>
-          <div className="mt-6 space-y-3">
-            {projects.length === 0 ? (
-              <div className="p-6 text-center text-xs text-muted border border-line rounded-lg">
-                No projects yet. Click &quot;Manage projects&quot; above to create your first workspace.
+
+          <div className="mt-6 flex flex-col items-center">
+            {/* Donut Gauge */}
+            <div className="relative flex h-32 w-32 items-center justify-center">
+              <svg className="h-full w-full -rotate-90" viewBox="0 0 36 36">
+                <path
+                  className="text-zinc-100"
+                  strokeWidth="3.5"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+                <path
+                  className="text-zinc-900"
+                  strokeDasharray="92, 100"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  stroke="currentColor"
+                  fill="none"
+                  d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                />
+              </svg>
+              <div className="absolute text-center">
+                <span className="text-2xl font-bold tracking-tight text-zinc-900">92%</span>
+                <span className="block text-[10px] font-medium text-zinc-500">Online</span>
               </div>
-            ) : (
-              projects.map((project, idx) => (
-                <button
-                  key={project.id}
-                  onClick={() => setActiveProject(project)}
-                  className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition ${activeProject?.id === project.id ? "border-lime/40 bg-lime/[.06]" : "border-transparent bg-[#121617] hover:border-line"}`}
-                >
-                  <span className={`h-2.5 w-2.5 rounded-full ${idx % 2 === 0 ? "bg-lime" : "bg-cyan"}`} />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm">{project.name}</span>
-                    <span className="mt-1 block text-[11px] text-muted truncate">
-                      {project.description || "Workspace knowledge base"}
-                    </span>
-                  </span>
-                  {activeProject?.id === project.id && (
-                    <ArrowUpRight size={15} className="text-lime" />
-                  )}
-                </button>
-              ))
-            )}
+            </div>
+
+            {/* Breakdown List */}
+            <div className="mt-6 w-full space-y-2 border-t border-zinc-100 pt-4 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-zinc-600">
+                  <span className="h-2 w-2 rounded-full bg-zinc-900" /> Online (Hybrid RRF)
+                </span>
+                <span className="font-mono font-semibold text-zinc-900">62</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-zinc-600">
+                  <span className="h-2 w-2 rounded-full bg-zinc-400" /> Fallback (BM25)
+                </span>
+                <span className="font-mono font-semibold text-zinc-900">5</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-2 text-zinc-500">
+                  <span className="h-2 w-2 rounded-full border border-zinc-300 bg-transparent" /> Maintenance
+                </span>
+                <span className="font-mono font-semibold text-zinc-500">0</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      <ActivityList setView={setView} />
+
+      {/* Bottom Row: Live Data (Latest) Table */}
+      <div className="mt-6 rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-card transition hover:border-zinc-300">
+        <div className="mb-4 flex items-center justify-between border-b border-zinc-100 pb-4">
+          <div>
+            <h2 className="text-base font-bold tracking-tight text-zinc-900">Live Documents (Latest)</h2>
+            <p className="mt-0.5 text-xs text-zinc-500">Real-time indexed knowledge in active workspace</p>
+          </div>
+          <button
+            onClick={() => setView("Documents")}
+            className="flex items-center gap-1 font-mono text-xs font-semibold text-zinc-900 hover:text-zinc-600 transition"
+          >
+            View All →
+          </button>
+        </div>
+
+        {recentDocs.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-zinc-200 p-8 text-center text-xs text-zinc-500">
+            No documents indexed in this project yet. Click &quot;View All →&quot; or upload your first file.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-zinc-100 font-mono text-[11px] font-semibold uppercase text-zinc-400">
+                  <th className="pb-3 pr-4">Document Name</th>
+                  <th className="pb-3 pr-4">Format</th>
+                  <th className="pb-3 pr-4">Size</th>
+                  <th className="pb-3 pr-4">Chunks</th>
+                  <th className="pb-3 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100 text-zinc-800">
+                {recentDocs.slice(0, 5).map((doc) => (
+                  <tr key={doc.id} className="hover:bg-zinc-50/70 transition">
+                    <td className="py-3 pr-4 font-medium text-zinc-900 flex items-center gap-2">
+                      <FileText size={14} className="text-zinc-400" />
+                      {doc.name}
+                    </td>
+                    <td className="py-3 pr-4 font-mono uppercase text-zinc-500">{doc.file_type}</td>
+                    <td className="py-3 pr-4 font-mono text-zinc-600">
+                      {Math.max(1, Math.round(doc.file_size / 1024))} KB
+                    </td>
+                    <td className="py-3 pr-4 font-mono text-zinc-700">{doc.chunk_count} chunks</td>
+                    <td className="py-3 text-right">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-700 border border-emerald-200/60">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {doc.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6">
+        <ActivityList setView={setView} />
+      </div>
     </>
   );
 }
 
 function ActivityList({ setView }: { setView?: (view: View) => void }) {
   const activityItems = [
-    { title: "RAG hybrid retrieval", detail: "BM25 + Semantic fusion active", type: "query", status: "Ready" },
-    { title: "JWT authentication", detail: "Secured project authorization", type: "setting", status: "Completed" },
-    { title: "Document chunking", detail: "Multi-format parser connected", type: "document", status: "Ready" },
+    { title: "RAG Hybrid Retrieval", detail: "BM25 + Semantic fusion active", type: "query", status: "Ready" },
+    { title: "JWT Authentication", detail: "Secured project authorization", type: "setting", status: "Active" },
+    { title: "Document Chunking", detail: "Multi-format parser connected", type: "document", status: "Ready" },
   ];
   return (
-    <div className="mt-6 rounded-xl border border-line bg-panel/80 p-5 shadow-glow sm:p-6">
-      <div className="mb-5 flex items-center justify-between">
+    <div className="rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-card transition hover:border-zinc-300">
+      <div className="mb-4 flex items-center justify-between border-b border-zinc-100 pb-4">
         <div>
-          <p className="mb-1 text-xs uppercase tracking-[.16em] text-muted">Latest activity</p>
-          <h2 className="font-display text-xl">What&apos;s happening</h2>
+          <p className="mb-0.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Workspace Log</p>
+          <h2 className="text-base font-bold tracking-tight text-zinc-900">Recent Activity</h2>
         </div>
         {setView && (
           <button
             onClick={() => setView("Activity")}
-            className="flex items-center gap-1 text-xs text-muted hover:text-white"
+            className="flex items-center gap-1 text-xs font-medium text-zinc-600 hover:text-black transition"
           >
-            View all <ArrowUpRight size={14} />
+            View all <ArrowUpRight size={13} />
           </button>
         )}
       </div>
-      <div className="divide-y divide-line">
+      <div className="divide-y divide-zinc-100">
         {activityItems.map((item) => (
-          <div key={item.title} className="flex items-center gap-3 py-4 first:pt-0 last:pb-0 sm:gap-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan/10 text-cyan">
-              <Zap size={16} />
+          <div key={item.title} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0 sm:gap-4">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700">
+              <Zap size={14} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm">{item.title}</p>
-              <p className="mt-1 text-xs text-muted">{item.detail}</p>
+              <p className="truncate text-xs font-semibold text-zinc-900">{item.title}</p>
+              <p className="mt-0.5 text-[11px] text-zinc-500">{item.detail}</p>
             </div>
-            <span className="rounded-full bg-lime/10 px-2.5 py-1 text-[10px] text-lime">
+            <span className="rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 font-mono text-[10px] font-semibold text-zinc-700">
               {item.status}
             </span>
           </div>
@@ -432,7 +551,7 @@ function Documents() {
   return (
     <>
       <SectionHeading
-        eyebrow="Knowledge base"
+        eyebrow="Knowledge Base"
         title="Documents"
         description={
           activeProject
@@ -443,43 +562,45 @@ function Documents() {
           <button
             onClick={() => setShowUploadModal(true)}
             disabled={!activeProject}
-            className="flex w-fit items-center gap-2 rounded-lg bg-lime px-4 py-2.5 text-sm font-semibold text-ink hover:bg-[#e2ff8c] disabled:opacity-40"
+            className="flex w-fit items-center gap-2 rounded-lg bg-black px-4 py-2 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40 shadow-sm"
           >
-            <FilePlus2 size={16} /> Upload documents
+            <FilePlus2 size={15} /> Upload documents
           </button>
         }
       />
 
       {error && (
-        <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-300">
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-700">
           {error}
         </div>
       )}
 
       {showUploadModal && (
-        <div className="mb-6 rounded-xl border border-lime/30 bg-[#121617] p-5 shadow-glow">
-          <div className="flex items-start justify-between">
+        <div className="mb-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-elevated">
+          <div className="flex items-start justify-between border-b border-zinc-100 pb-4">
             <div className="flex items-center gap-3">
-              <UploadCloud className="text-lime" size={24} />
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-900">
+                <UploadCloud size={18} />
+              </div>
               <div>
-                <h3 className="text-sm font-semibold">Upload document to {activeProject?.name}</h3>
-                <p className="text-xs text-muted">
+                <h3 className="text-sm font-bold text-zinc-900">Upload document to {activeProject?.name}</h3>
+                <p className="mt-0.5 text-xs text-zinc-500">
                   Supported formats: PDF, Markdown (.md), TXT, and CSV. Files are chunked automatically.
                 </p>
               </div>
             </div>
             <button
               onClick={() => setShowUploadModal(false)}
-              className="text-xs text-muted hover:text-white"
+              className="rounded-lg border border-zinc-200 px-2.5 py-1 text-xs text-zinc-600 hover:text-black hover:border-zinc-300 transition"
             >
               Cancel
             </button>
           </div>
 
-          <div className="mt-5 grid gap-5 lg:grid-cols-2">
+          <div className="mt-5 grid gap-4 lg:grid-cols-2">
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="cursor-pointer rounded-lg border border-dashed border-line bg-panel/60 p-6 text-center transition hover:border-lime/50"
+              className="cursor-pointer rounded-xl border border-dashed border-zinc-300 bg-zinc-50/70 p-6 text-center transition hover:border-zinc-500 hover:bg-zinc-50"
             >
               <input
                 type="file"
@@ -488,32 +609,32 @@ function Documents() {
                 className="hidden"
                 accept=".txt,.md,.pdf,.csv"
               />
-              <Upload size={24} className="mx-auto text-lime" />
-              <p className="mt-3 text-xs font-medium text-white">Click to browse file</p>
-              <p className="mt-1 text-[11px] text-muted">PDF, MD, TXT, or CSV</p>
-              {uploading && <p className="mt-2 text-xs text-lime">Uploading and indexing...</p>}
+              <Upload size={22} className="mx-auto text-zinc-600" />
+              <p className="mt-2.5 text-xs font-bold text-zinc-900">Click to browse file</p>
+              <p className="mt-1 font-mono text-[10px] text-zinc-500">PDF, MD, TXT, or CSV</p>
+              {uploading && <p className="mt-2 font-mono text-xs text-zinc-900 font-semibold">Uploading and indexing...</p>}
             </div>
 
-            <form onSubmit={handleCreateTextDoc} className="space-y-3 rounded-lg border border-line bg-panel/60 p-4">
-              <p className="text-xs font-medium text-white">Or write direct text / markdown:</p>
+            <form onSubmit={handleCreateTextDoc} className="space-y-3 rounded-xl border border-zinc-200 bg-zinc-50/70 p-4">
+              <p className="text-xs font-bold text-zinc-900">Or write direct text / markdown:</p>
               <input
                 type="text"
                 placeholder="Document title (e.g. runbook.md)"
                 value={textDocName}
                 onChange={(e) => setTextDocName(e.target.value)}
-                className="w-full rounded border border-line bg-[#121617] px-3 py-1.5 text-xs text-white outline-none focus:border-lime/50"
+                className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-900 outline-none focus:border-zinc-400"
               />
               <textarea
                 placeholder="Paste documentation text or markdown content..."
                 value={textDocContent}
                 onChange={(e) => setTextDocContent(e.target.value)}
                 rows={3}
-                className="w-full rounded border border-line bg-[#121617] p-2 text-xs text-white outline-none focus:border-lime/50 resize-none"
+                className="w-full resize-none rounded-lg border border-zinc-200 bg-white p-2 text-xs text-zinc-900 outline-none focus:border-zinc-400"
               />
               <button
                 type="submit"
                 disabled={uploading || !textDocName.trim() || !textDocContent.trim()}
-                className="rounded bg-lime px-3 py-1.5 text-xs font-semibold text-ink disabled:opacity-40"
+                className="rounded-lg bg-black px-3.5 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40 shadow-sm"
               >
                 Save & Index
               </button>
@@ -522,39 +643,39 @@ function Documents() {
         </div>
       )}
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-3">
+      <div className="mb-5 grid gap-4 sm:grid-cols-3">
         {[
-          ["Total files", docs.length.toString()],
+          ["Total Files", docs.length.toString()],
           [
-            "Indexed chunks",
+            "Indexed Chunks",
             docs.reduce((sum, d) => sum + d.chunk_count, 0).toLocaleString(),
           ],
           ["Status", activeProject ? "Connected" : "No project"],
         ].map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-line bg-panel/80 p-4">
-            <p className="text-xs text-muted">{label}</p>
-            <p className="mt-2 font-display text-2xl">{value}</p>
+          <div key={label} className="rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-card">
+            <p className="text-xs font-medium text-zinc-500">{label}</p>
+            <p className="mt-2 text-2xl font-bold tracking-tight text-zinc-900">{value}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-xl border border-line bg-panel/80 shadow-glow">
-        <div className="flex flex-col gap-3 border-b border-line p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+      <div className="overflow-hidden rounded-2xl border border-zinc-200/90 bg-white shadow-card">
+        <div className="flex flex-col gap-3 border-b border-zinc-100 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="relative flex-1 sm:max-w-sm">
-            <Search size={16} className="absolute left-3 top-2.5 text-muted" />
+            <Search size={14} className="absolute left-3 top-2.5 text-zinc-400" />
             <input
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search documents..."
-              className="w-full rounded-lg border border-line bg-[#121617] py-2 pl-9 pr-3 text-xs text-white outline-none focus:border-lime/50"
+              className="w-full rounded-lg border border-zinc-200 bg-zinc-50/70 py-1.5 pl-8 pr-3 text-xs text-zinc-900 outline-none focus:border-zinc-400 focus:bg-white"
             />
           </div>
           <div className="flex items-center gap-2">
-            <Filter size={14} className="text-muted" />
+            <Filter size={13} className="text-zinc-500" />
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="rounded-lg border border-line bg-[#121617] px-3 py-2 text-xs text-muted outline-none"
+              className="rounded-lg border border-zinc-200 bg-zinc-50/70 px-2.5 py-1.5 text-xs text-zinc-700 outline-none focus:border-zinc-400"
             >
               <option>All files</option>
               <option>Ready</option>
@@ -564,52 +685,52 @@ function Documents() {
         </div>
 
         {loading ? (
-          <div className="p-10 text-center text-xs text-muted">
-            <RefreshCw size={18} className="mx-auto mb-2 animate-spin text-lime" />
+          <div className="p-10 text-center text-xs text-zinc-500">
+            <RefreshCw size={16} className="mx-auto mb-2 animate-spin text-zinc-400" />
             Loading documents...
           </div>
         ) : filtered.length === 0 ? (
-          <div className="p-10 text-center text-sm text-muted">
+          <div className="p-10 text-center text-xs text-zinc-500">
             {activeProject
               ? "No documents in this project yet. Click 'Upload documents' above."
               : "Please select an active project first."}
           </div>
         ) : (
-          <div className="divide-y divide-line">
+          <div className="divide-y divide-zinc-100">
             {filtered.map((doc) => (
               <div
                 key={doc.id}
-                className="grid gap-3 px-4 py-4 transition hover:bg-white/[.02] md:grid-cols-[minmax(0,1.7fr)_80px_100px_110px_120px_32px] md:items-center md:gap-4 md:px-5"
+                className="grid gap-3 px-5 py-4 transition hover:bg-zinc-50/60 md:grid-cols-[minmax(0,1.7fr)_80px_100px_110px_120px_32px] md:items-center md:gap-4"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-cyan/10 text-cyan">
-                    <FileText size={16} />
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700">
+                    <FileText size={15} />
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">{doc.name}</p>
-                    <p className="mt-1 text-[11px] text-muted md:hidden">
+                    <p className="truncate text-xs font-semibold text-zinc-900">{doc.name}</p>
+                    <p className="mt-0.5 text-[10px] font-mono text-zinc-500 md:hidden">
                       {doc.file_type.toUpperCase()} · {doc.chunk_count} chunks · {doc.status}
                     </p>
                   </div>
                 </div>
-                <span className="hidden text-xs text-muted uppercase md:block">
+                <span className="hidden font-mono text-[11px] uppercase text-zinc-500 md:block">
                   {doc.file_type}
                 </span>
-                <span className="hidden text-xs text-muted md:block">
+                <span className="hidden font-mono text-[11px] text-zinc-600 md:block">
                   {Math.max(1, Math.round(doc.file_size / 1024))} KB
                 </span>
-                <span className="hidden text-xs text-muted md:block">
+                <span className="hidden font-mono text-[11px] text-zinc-600 md:block">
                   {doc.chunk_count} chunks
                 </span>
-                <span className="flex w-fit items-center gap-1.5 rounded-full bg-lime/10 px-2.5 py-1 text-[10px] text-lime">
-                  <CheckCircle2 size={12} /> {doc.status}
+                <span className="flex w-fit items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-700 border border-emerald-200/60">
+                  <CheckCircle2 size={11} className="text-emerald-600" /> {doc.status}
                 </span>
                 <button
                   onClick={() => handleDelete(doc.id)}
                   title="Delete document"
-                  className="text-muted hover:text-red-400 transition"
+                  className="text-zinc-400 hover:text-red-500 transition"
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={15} />
                 </button>
               </div>
             ))}
@@ -648,22 +769,22 @@ function AskData() {
   return (
     <>
       <SectionHeading
-        eyebrow="Retrieval workspace"
+        eyebrow="Retrieval Engine"
         title="Ask your data"
         description="Search across your indexed knowledge with verified grounded answers and citations."
         action={
-          <div className="flex items-center gap-2 rounded-lg border border-line bg-panel/80 px-3 py-2 text-xs text-muted">
-            <span className="h-2 w-2 rounded-full bg-lime" />
+          <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-600 shadow-sm">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
             <select
               value={activeProject?.id || ""}
               onChange={(e) => {
                 const found = projects.find((p) => p.id === Number(e.target.value));
                 if (found) setActiveProject(found);
               }}
-              className="bg-transparent text-white outline-none cursor-pointer"
+              className="cursor-pointer bg-transparent text-xs font-semibold text-zinc-900 outline-none"
             >
               {projects.map((p) => (
-                <option key={p.id} value={p.id} className="bg-panel text-white">
+                <option key={p.id} value={p.id} className="bg-white text-zinc-900">
                   {p.name}
                 </option>
               ))}
@@ -672,15 +793,15 @@ function AskData() {
         }
       />
       <div className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
-        <div className="rounded-xl border border-line bg-panel/80 p-5 shadow-glow sm:p-7">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-lime/10 text-lime">
-              <Sparkles size={19} />
+        <div className="rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-card transition hover:border-zinc-300">
+          <div className="mb-4 flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-900">
+              <Sparkles size={16} />
             </div>
             <div>
-              <h2 className="font-display text-xl">New question</h2>
-              <p className="text-xs text-muted">
-                Answers cite the exact source documents and chunk indexes.
+              <h2 className="text-base font-bold tracking-tight text-zinc-900">New Question</h2>
+              <p className="text-xs text-zinc-500">
+                Answers cite exact source documents and chunk indexes.
               </p>
             </div>
           </div>
@@ -693,15 +814,15 @@ function AskData() {
             }}
             placeholder="e.g. What is our RAG latency budget and groundedness threshold?"
             disabled={!activeProject || loading}
-            className="min-h-[140px] w-full resize-none rounded-lg border border-line bg-[#121617] p-4 text-sm text-white outline-none placeholder:text-muted focus:border-lime/50 disabled:opacity-40"
+            className="min-h-[130px] w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-400 focus:bg-white disabled:opacity-40 transition"
           />
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs text-muted">
-              <SlidersHorizontal size={14} /> Mode:
+            <div className="flex items-center gap-2 text-xs text-zinc-600">
+              <SlidersHorizontal size={13} /> Mode:
               <select
                 value={mode}
                 onChange={(e) => setMode(e.target.value as "hybrid" | "bm25" | "semantic")}
-                className="rounded border border-line bg-[#121617] px-2 py-1 text-xs text-white outline-none"
+                className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-900 outline-none focus:border-zinc-400"
               >
                 <option value="hybrid">Hybrid (BM25 + Semantic RRF)</option>
                 <option value="bm25">Lexical BM25 Only</option>
@@ -711,41 +832,41 @@ function AskData() {
             <button
               onClick={handleAsk}
               disabled={!question.trim() || !activeProject || loading}
-              className="flex items-center gap-2 rounded-md bg-lime px-4 py-2.5 text-xs font-semibold text-ink hover:bg-[#e2ff8c] disabled:opacity-40"
+              className="flex items-center gap-1.5 rounded-lg bg-black px-4 py-2 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40 shadow-sm"
             >
-              {loading ? <RefreshCw size={14} className="animate-spin" /> : <Sparkles size={14} />}
+              {loading ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
               {loading ? "Synthesizing..." : "Generate answer"}
             </button>
           </div>
 
           {error && (
-            <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-700">
               {error}
             </div>
           )}
 
           {response && (
-            <div className="mt-6 border-t border-line pt-6">
-              <div className="mb-3 flex items-center justify-between text-sm text-lime font-medium">
-                <span className="flex items-center gap-2">
-                  <CheckCircle2 size={16} /> Grounded answer ready
+            <div className="mt-6 border-t border-zinc-100 pt-5">
+              <div className="mb-2.5 flex items-center justify-between text-xs text-zinc-900 font-semibold">
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 size={15} className="text-emerald-600" /> Grounded Answer Ready
                 </span>
-                <span className="text-xs text-muted">Latency: {response.latency_ms}ms</span>
+                <span className="font-mono text-[11px] text-zinc-500">Latency: {response.latency_ms}ms</span>
               </div>
-              <p className="text-sm leading-7 text-[#d8ddd4]">{response.answer}</p>
+              <p className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 text-xs leading-6 text-zinc-800">{response.answer}</p>
               {response.sources.length > 0 && (
-                <div className="mt-5 space-y-2">
-                  <p className="text-xs font-medium text-muted">Retrieved Sources:</p>
+                <div className="mt-4 space-y-2">
+                  <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Retrieved Sources:</p>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {response.sources.map((s, idx) => (
-                      <div key={idx} className="rounded-lg border border-line bg-[#121617] p-3 text-xs">
-                        <p className="text-lime font-medium">
-                          Source {idx + 1} (Score: {s.score.toFixed(4)})
+                      <div key={idx} className="rounded-xl border border-zinc-200 bg-white p-3 text-xs shadow-card">
+                        <p className="font-mono text-[11px] font-semibold text-zinc-900">
+                          Source {idx + 1} · score: {s.score.toFixed(4)}
                         </p>
-                        <p className="mt-1 text-white font-medium">
+                        <p className="mt-0.5 font-mono text-[11px] text-zinc-600">
                           {s.document_name} · chunk {s.chunk_index}
                         </p>
-                        <p className="mt-1 text-muted text-[11px] line-clamp-2">
+                        <p className="mt-1 text-[11px] text-zinc-500 line-clamp-2">
                           &quot;{s.content}&quot;
                         </p>
                       </div>
@@ -757,23 +878,23 @@ function AskData() {
           )}
         </div>
 
-        <div className="rounded-xl border border-line bg-panel/80 p-5 shadow-glow sm:p-7">
-          <p className="text-xs uppercase tracking-[.16em] text-muted">Retrieval Health</p>
-          <div className="mt-6 space-y-5">
+        <div className="rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-card transition hover:border-zinc-300">
+          <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-400">Retrieval Health</p>
+          <div className="mt-5 space-y-4">
             {[
               ["BM25 Lexical Index", "Online", "100%"],
               ["Vector Similarity", "Online", "98.7%"],
               ["RRF Rank Fusion", "Enabled", "k=60"],
             ].map(([label, status, val]) => (
-              <div key={label}>
+              <div key={label} className="border-b border-zinc-100 pb-3 last:border-b-0">
                 <div className="mb-2 flex justify-between text-xs">
-                  <span>{label}</span>
-                  <span className="text-lime">{status}</span>
+                  <span className="font-medium text-zinc-800">{label}</span>
+                  <span className="font-mono font-semibold text-zinc-600">{status}</span>
                 </div>
-                <div className="h-1.5 rounded-full bg-white/[.08]">
-                  <div className="h-full rounded-full bg-lime" style={{ width: "95%" }} />
+                <div className="h-1.5 rounded-full bg-zinc-100">
+                  <div className="h-full rounded-full bg-zinc-900" style={{ width: "95%" }} />
                 </div>
-                <p className="mt-1 text-right text-[11px] text-muted">{val}</p>
+                <p className="mt-1 text-right font-mono text-[10px] text-zinc-500">{val}</p>
               </div>
             ))}
           </div>
@@ -825,48 +946,48 @@ function Projects() {
   return (
     <>
       <SectionHeading
-        eyebrow="Workspace"
+        eyebrow="Workspaces"
         title="Projects"
         description="Organize knowledge bases and keep retrieval contexts focused."
         action={
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex w-fit items-center gap-2 rounded-lg bg-lime px-4 py-2.5 text-sm font-semibold text-ink hover:bg-[#e2ff8c]"
+            className="flex w-fit items-center gap-2 rounded-lg bg-black px-4 py-2 text-xs font-medium text-white transition hover:bg-zinc-800 shadow-sm"
           >
-            <Plus size={16} /> Create project
+            <Plus size={15} /> Create project
           </button>
         }
       />
 
       {error && (
-        <div className="mb-6 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-300">
+        <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-700">
           {error}
         </div>
       )}
 
       {showCreateModal && (
-        <form onSubmit={handleCreate} className="mb-6 rounded-xl border border-lime/40 bg-[#121617] p-5 shadow-glow">
-          <h3 className="text-sm font-semibold text-white">Create new project workspace</h3>
+        <form onSubmit={handleCreate} className="mb-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-elevated">
+          <h3 className="text-sm font-bold text-zinc-900">Create new project workspace</h3>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="text-xs text-muted">Project Name</label>
+              <label className="text-xs font-medium text-zinc-600">Project Name</label>
               <input
                 type="text"
                 required
                 placeholder="e.g. Platform docs"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-line bg-panel px-3 py-2 text-xs text-white outline-none focus:border-lime/50"
+                className="mt-1 w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 outline-none focus:border-zinc-400 focus:bg-white"
               />
             </div>
             <div>
-              <label className="text-xs text-muted">Description (optional)</label>
+              <label className="text-xs font-medium text-zinc-600">Description (optional)</label>
               <input
                 type="text"
                 placeholder="Brief summary of documents"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-line bg-panel px-3 py-2 text-xs text-white outline-none focus:border-lime/50"
+                className="mt-1 w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 outline-none focus:border-zinc-400 focus:bg-white"
               />
             </div>
           </div>
@@ -874,14 +995,14 @@ function Projects() {
             <button
               type="submit"
               disabled={loading || !name.trim()}
-              className="rounded-lg bg-lime px-4 py-2 text-xs font-semibold text-ink disabled:opacity-40"
+              className="rounded-lg bg-black px-4 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40 shadow-sm"
             >
               {loading ? "Creating..." : "Save Project"}
             </button>
             <button
               type="button"
               onClick={() => setShowCreateModal(false)}
-              className="rounded-lg border border-line px-3 py-2 text-xs text-muted hover:text-white"
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs text-zinc-600 hover:text-black hover:border-zinc-300 transition"
             >
               Cancel
             </button>
@@ -890,32 +1011,44 @@ function Projects() {
       )}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {projects.map((project, idx) => (
+        {projects.map((project) => (
           <div
             key={project.id}
-            className={`rounded-xl border p-5 shadow-glow transition ${activeProject?.id === project.id ? "border-lime/50 bg-panel" : "border-line bg-panel/80"}`}
+            className={`rounded-2xl border p-5 transition shadow-card ${
+              activeProject?.id === project.id
+                ? "border-zinc-900 bg-white ring-1 ring-zinc-900"
+                : "border-zinc-200/90 bg-white hover:border-zinc-300"
+            }`}
           >
             <div className="flex items-start justify-between">
-              <span className={`h-3 w-3 rounded-full ${idx % 2 === 0 ? "bg-lime" : "bg-cyan"}`} />
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  activeProject?.id === project.id ? "bg-black" : "bg-zinc-300"
+                }`}
+              />
               <button
                 onClick={() => handleDelete(project.id)}
                 title="Delete project"
-                className="text-muted hover:text-red-400"
+                className="text-zinc-400 hover:text-red-500 transition"
               >
-                <Trash2 size={16} />
+                <Trash2 size={15} />
               </button>
             </div>
-            <h2 className="mt-5 font-display text-xl">{project.name}</h2>
-            <p className="mt-2 text-xs leading-5 text-muted line-clamp-2">
+            <h2 className="mt-4 text-base font-bold tracking-tight text-zinc-900">{project.name}</h2>
+            <p className="mt-1 text-xs text-zinc-500 line-clamp-2">
               {project.description || "Knowledge workspace for documents and retrieval queries."}
             </p>
-            <div className="mt-6 border-t border-line pt-4 flex items-center justify-between">
-              <span className="text-[11px] text-muted">
-                Created {new Date(project.created_at).toLocaleDateString()}
+            <div className="mt-5 border-t border-zinc-100 pt-3.5 flex items-center justify-between">
+              <span className="font-mono text-[10px] text-zinc-400">
+                {new Date(project.created_at).toLocaleDateString()}
               </span>
               <button
                 onClick={() => setActiveProject(project)}
-                className={`text-xs font-semibold flex items-center gap-1 ${activeProject?.id === project.id ? "text-lime" : "text-muted hover:text-white"}`}
+                className={`text-xs font-semibold flex items-center gap-1 transition ${
+                  activeProject?.id === project.id
+                    ? "text-black"
+                    : "text-zinc-500 hover:text-black"
+                }`}
               >
                 {activeProject?.id === project.id ? "Active Workspace ✓" : "Set Active →"}
               </button>
@@ -969,40 +1102,37 @@ function AuthScreen() {
   };
 
   return (
-    <div className="grid-texture flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-md rounded-2xl border border-line bg-panel/90 p-8 shadow-2xl backdrop-blur-md">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-lime text-ink shadow-lg shadow-lime/20">
-            <Layers3 size={22} strokeWidth={2.4} />
+    <div className="flex min-h-screen items-center justify-center bg-[#f4f5f7] p-4">
+      <div className="w-full max-w-sm rounded-2xl border border-zinc-200/90 bg-white p-7 shadow-elevated">
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black text-white shadow-sm">
+            <Layers3 size={18} strokeWidth={2.2} />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="font-display text-xl font-semibold tracking-tight text-white">
+            <div className="flex items-center gap-1.5">
+              <span className="text-base font-bold tracking-tight text-zinc-900">
                 vectorly
               </span>
-              <span className="rounded border border-line px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-muted">
-                beta
+              <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-zinc-600">
+                v0.1
               </span>
             </div>
-            <p className="text-[11px] text-muted">Retrieval-Aware AI Platform</p>
           </div>
           <div className="ml-auto">
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium ${
-                backendOnline ? "bg-lime/10 text-lime" : "bg-white/[.08] text-muted"
-              }`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 font-mono text-[10px] font-medium text-zinc-700"
             >
-              <span className={`h-1.5 w-1.5 rounded-full ${backendOnline ? "bg-lime animate-pulse" : "bg-muted"}`} />
+              <span className={`h-1.5 w-1.5 rounded-full ${backendOnline ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"}`} />
               {backendOnline ? "API Online" : "API Offline"}
             </span>
           </div>
         </div>
 
-        <div className="mt-8 border-b border-line pb-4">
-          <h1 className="font-display text-2xl font-medium tracking-tight text-white">
+        <div className="mt-6 border-b border-zinc-100 pb-4">
+          <h1 className="text-lg font-bold tracking-tight text-zinc-900">
             {isRegister ? "Create an account" : "Sign in to workspace"}
           </h1>
-          <p className="mt-1 text-xs text-muted">
+          <p className="mt-0.5 text-xs text-zinc-500">
             {isRegister
               ? "Register to start indexing documents and running hybrid RAG queries."
               : "Enter your credentials to access your workspaces and knowledge bases."}
@@ -1010,20 +1140,20 @@ function AuthScreen() {
         </div>
 
         {error && (
-          <div className="mt-5 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-300">
+          <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
             {error}
           </div>
         )}
 
-        <div className="mt-6 flex rounded-lg border border-line bg-[#121617] p-1">
+        <div className="mt-5 flex rounded-xl border border-zinc-200 bg-zinc-100/80 p-1">
           <button
             type="button"
             onClick={() => {
               setIsRegister(false);
               setError(null);
             }}
-            className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
-              !isRegister ? "bg-white/[.08] text-white" : "text-muted hover:text-white"
+            className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
+              !isRegister ? "bg-black text-white shadow-sm" : "text-zinc-500 hover:text-black"
             }`}
           >
             Sign In
@@ -1034,40 +1164,40 @@ function AuthScreen() {
               setIsRegister(true);
               setError(null);
             }}
-            className={`flex-1 rounded-md py-1.5 text-xs font-medium transition ${
-              isRegister ? "bg-white/[.08] text-white" : "text-muted hover:text-white"
+            className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
+              isRegister ? "bg-black text-white shadow-sm" : "text-zinc-500 hover:text-black"
             }`}
           >
             Register
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-4 space-y-3.5">
           {isRegister && (
             <div>
-              <label className="text-xs text-muted">Full Name</label>
+              <label className="text-xs font-medium text-zinc-600">Full Name</label>
               <input
                 type="text"
                 placeholder="Alex Morgan"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="mt-1.5 w-full rounded-lg border border-line bg-[#121617] px-3.5 py-2.5 text-xs text-white outline-none focus:border-lime/50"
+                className="mt-1 w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 outline-none focus:border-zinc-400 focus:bg-white"
               />
             </div>
           )}
           <div>
-            <label className="text-xs text-muted">Email address</label>
+            <label className="text-xs font-medium text-zinc-600">Email address</label>
             <input
               type="email"
               required
               placeholder="alex@vectorly.ai"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-line bg-[#121617] px-3.5 py-2.5 text-xs text-white outline-none focus:border-lime/50"
+              className="mt-1 w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 outline-none focus:border-zinc-400 focus:bg-white"
             />
           </div>
           <div>
-            <label className="text-xs text-muted">Password (8+ chars)</label>
+            <label className="text-xs font-medium text-zinc-600">Password (8+ chars)</label>
             <input
               type="password"
               required
@@ -1075,39 +1205,39 @@ function AuthScreen() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-line bg-[#121617] px-3.5 py-2.5 text-xs text-white outline-none focus:border-lime/50"
+              className="mt-1 w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 outline-none focus:border-zinc-400 focus:bg-white"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-lime py-2.5 text-xs font-semibold text-ink transition hover:bg-[#e2ff8c] disabled:opacity-40"
+            className="w-full rounded-lg bg-black py-2.5 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40 shadow-sm"
           >
             {loading ? "Authenticating..." : isRegister ? "Create Account" : "Sign In to Workspace"}
           </button>
         </form>
 
-        <div className="relative mt-6 text-center">
+        <div className="relative mt-5 text-center">
           <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-line" />
+            <div className="w-full border-t border-zinc-200" />
           </div>
-          <span className="relative bg-panel px-3 text-[11px] uppercase tracking-wider text-muted">
-            Or quick start
+          <span className="relative bg-white px-2 font-mono text-[10px] uppercase tracking-wider text-zinc-400">
+            or quick start
           </span>
         </div>
 
-        <div className="mt-5">
+        <div className="mt-4">
           <button
             type="button"
             onClick={handleDemo}
             disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-lime/40 bg-lime/[.06] py-2.5 text-xs font-semibold text-lime transition hover:bg-lime/[.12] disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50/80 py-2.5 text-xs font-semibold text-zinc-800 transition hover:bg-zinc-100 disabled:opacity-40"
           >
-            <Zap size={14} /> ⚡ 1-Click Instant Demo Login
+            <Zap size={14} className="text-zinc-600" /> 1-Click Instant Demo Login
           </button>
-          <p className="mt-2 text-center text-[10px] text-muted">
-            Auto-provisions a demo user, starter project, and pre-indexed sample docs.
+          <p className="mt-2 text-center font-mono text-[10px] text-zinc-400">
+            Auto-provisions demo session with starter knowledge base.
           </p>
         </div>
       </div>
@@ -1122,21 +1252,21 @@ function Evaluations() {
   return (
     <>
       <SectionHeading
-        eyebrow="Quality signals"
+        eyebrow="Quality Signals"
         title="Evaluations"
         description="Track whether retrieval is returning useful, grounded context."
       />
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          ["Answer faithfulness", "96.8%", "+2.1%"],
-          ["Context precision", "91.4%", "+4.8%"],
-          ["Context recall", "88.2%", "+1.7%"],
-          ["P95 latency", "412ms", "-8.4%"],
+          ["Answer Faithfulness", "96.8%", "+2.1%"],
+          ["Context Precision", "91.4%", "+4.8%"],
+          ["Context Recall", "88.2%", "+1.7%"],
+          ["P95 Latency", "412ms", "-8.4%"],
         ].map(([label, value, change]) => (
-          <div key={label} className="rounded-xl border border-line bg-panel/80 p-5">
-            <p className="text-xs text-muted">{label}</p>
-            <p className="mt-4 font-display text-2xl">{value}</p>
-            <p className={`mt-2 text-[11px] ${change.startsWith("-") ? "text-cyan" : "text-lime"}`}>
+          <div key={label} className="rounded-2xl border border-zinc-200/90 bg-white p-5 shadow-card">
+            <p className="text-xs font-medium text-zinc-500">{label}</p>
+            <p className="mt-3 text-3xl font-bold tracking-tight text-zinc-900">{value}</p>
+            <p className="mt-1 font-mono text-[11px] font-semibold text-zinc-600">
               {change} vs. last run
             </p>
           </div>
@@ -1151,23 +1281,23 @@ function Settings() {
   return (
     <>
       <SectionHeading
-        eyebrow="Workspace controls"
+        eyebrow="Workspace Controls"
         title="Settings"
         description="Configure your retrieval workspace and API preferences."
       />
-      <div className="rounded-xl border border-line bg-panel/80 p-6 shadow-glow max-w-xl">
-        <h2 className="font-display text-xl text-white">API Connection</h2>
-        <p className="mt-1 text-xs text-muted">Backend URL: http://localhost:8000/api/v1</p>
-        <div className="mt-4 space-y-2 text-xs text-muted">
+      <div className="max-w-xl rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-card">
+        <h2 className="text-base font-bold tracking-tight text-zinc-900">API Connection</h2>
+        <p className="mt-1 font-mono text-xs text-zinc-500">Backend URL: http://localhost:8000/api/v1</p>
+        <div className="mt-4 space-y-2 text-xs text-zinc-600">
           <p>
-            Status: <span className="text-lime">Online</span>
+            Status: <span className="font-semibold text-emerald-600">● Online</span>
           </p>
           <p>
-            Active User: <span className="text-white">{user?.email || "Not signed in"}</span>
+            Active User: <span className="font-semibold text-zinc-900">{user?.email || "Not signed in"}</span>
           </p>
           <p>
             FastAPI Docs:{" "}
-            <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" className="text-lime underline">
+            <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" className="text-zinc-900 underline hover:text-black">
               http://localhost:8000/docs
             </a>
           </p>
@@ -1186,12 +1316,12 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="grid-texture flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-[#f4f5f7]">
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-lime text-ink shadow-lg shadow-lime/20">
-            <Layers3 size={22} className="animate-pulse" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-black text-white animate-pulse">
+            <Layers3 size={20} />
           </div>
-          <p className="font-display text-xs text-muted tracking-wide">
+          <p className="font-mono text-xs text-zinc-500 tracking-wider">
             Initializing Vectorly workspace...
           </p>
         </div>
@@ -1203,6 +1333,15 @@ export default function Home() {
     return <AuthScreen />;
   }
 
+  const userInitials = user.full_name
+    ? user.full_name
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase()
+        .slice(0, 2)
+    : "HB";
+
   const viewContent = {
     Overview: <Overview setView={setActiveView} />,
     "Ask your data": <AskData />,
@@ -1212,7 +1351,7 @@ export default function Home() {
     Activity: (
       <>
         <SectionHeading
-          eyebrow="Workspace log"
+          eyebrow="Workspace Log"
           title="Activity"
           description="A timeline of changes, queries, and processing events."
         />
@@ -1223,24 +1362,24 @@ export default function Home() {
   };
 
   return (
-    <main className="grid-texture min-h-screen lg:flex">
-      <aside className="flex w-full shrink-0 flex-col border-b border-line bg-[#121617]/90 px-4 py-5 lg:min-h-screen lg:w-[238px] lg:border-b-0 lg:border-r">
-        <div className="flex items-center gap-2 px-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-lime text-ink">
-            <Layers3 size={18} strokeWidth={2.4} />
+    <main className="min-h-screen bg-[#f4f5f7] lg:flex">
+      {/* Sidebar - Matching Reference Screenshot */}
+      <aside className="flex w-full shrink-0 flex-col border-b border-zinc-200/90 bg-white px-4 py-5 lg:min-h-screen lg:w-[224px] lg:border-b-0 lg:border-r">
+        {/* Brand Logo */}
+        <div className="flex items-center gap-2.5 px-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-black text-white shadow-sm">
+            <Layers3 size={18} strokeWidth={2.2} />
           </div>
-          <span className="font-display text-lg font-semibold tracking-tight">
+          <span className="text-base font-bold tracking-tight text-zinc-900">
             vectorly
           </span>
-          <span className="ml-auto rounded border border-line px-1.5 py-0.5 text-[9px] uppercase tracking-widest text-muted">
-            beta
+          <span className="ml-auto rounded-full bg-zinc-100 px-2 py-0.5 font-mono text-[9px] font-semibold text-zinc-500">
+            v0.1
           </span>
         </div>
 
-        <div className="mt-9 hidden flex-1 lg:block">
-          <p className="mb-3 px-3 text-[10px] font-medium uppercase tracking-[.18em] text-muted">
-            Workspace
-          </p>
+        {/* Navigation Tabs */}
+        <div className="mt-8 hidden flex-1 lg:block">
           <nav className="space-y-1">
             <NavItem
               icon={LayoutDashboard}
@@ -1266,11 +1405,6 @@ export default function Home() {
               active={activeView === "Projects"}
               onClick={() => setActiveView("Projects")}
             />
-          </nav>
-          <p className="mb-3 mt-9 px-3 text-[10px] font-medium uppercase tracking-[.18em] text-muted">
-            Observe
-          </p>
-          <nav className="space-y-1">
             <NavItem
               icon={BarChart3}
               label="Evaluations"
@@ -1283,62 +1417,83 @@ export default function Home() {
               active={activeView === "Activity"}
               onClick={() => setActiveView("Activity")}
             />
+            <NavItem
+              icon={Settings2}
+              label="Settings"
+              active={activeView === "Settings"}
+              onClick={() => setActiveView("Settings")}
+            />
           </nav>
         </div>
 
-        <div className="hidden space-y-1 lg:block">
-          <NavItem
-            icon={Settings2}
-            label="Settings"
-            active={activeView === "Settings"}
-            onClick={() => setActiveView("Settings")}
-          />
-
-          <div className="mt-5 border-t border-line px-3 pt-5">
-            <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-lime text-xs font-semibold text-ink">
-                {user.full_name ? user.full_name.slice(0, 2).toUpperCase() : "U"}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium">{user.full_name || "User"}</p>
-                <p className="truncate text-[11px] text-muted">{user.email}</p>
-              </div>
-              <button onClick={logout} title="Sign out" className="text-muted hover:text-white">
-                <LogOut size={16} />
-              </button>
+        {/* Sidebar Footer User Profile - Matches Screenshot */}
+        <div className="hidden border-t border-zinc-100 px-2 pt-4 lg:block">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white">
+              {userInitials}
             </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-bold text-zinc-900">{user.full_name || "Himanshu Bisht"}</p>
+              <p className="truncate font-mono text-[10px] text-zinc-500">{user.email || "Admin"}</p>
+            </div>
+            <button onClick={logout} title="Sign out" className="text-zinc-400 hover:text-black transition">
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
       </aside>
 
+      {/* Main Section */}
       <section className="min-w-0 flex-1">
-        <header className="flex h-[76px] items-center justify-between border-b border-line px-5 sm:px-8">
-          <div className="flex items-center gap-3 text-sm text-muted">
-            <span className="hidden sm:inline">Workspace</span>
-            <span className="text-line">/</span>
-            <span className="text-white">{activeView}</span>
-            <span
-              className={`ml-3 rounded-full px-2 py-0.5 text-[10px] font-medium ${backendOnline ? "bg-lime/10 text-lime" : "bg-white/[.08] text-muted"}`}
-            >
-              {backendOnline ? "● API Online" : "○ API Ready"}
-            </span>
+        {/* Top Header - Matches Screenshot */}
+        <header className="flex h-16 items-center justify-between border-b border-zinc-200/90 bg-white/90 px-5 sm:px-8 backdrop-blur-md">
+          <div>
+            <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
+              <span>Workspace</span>
+              <span>/</span>
+              <span className="font-semibold text-zinc-900">{activeView}</span>
+              <span className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 font-mono text-[10px] font-medium text-zinc-700">
+                <span className={`h-1.5 w-1.5 rounded-full ${backendOnline ? "bg-emerald-500 animate-pulse" : "bg-zinc-400"}`} />
+                {backendOnline ? "API Online" : "API Offline"}
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 text-xs text-muted">
-              <span className="hidden sm:inline text-white font-medium">{user.email}</span>
-              <button
-                onClick={logout}
-                className="rounded border border-line px-2.5 py-1 text-xs hover:text-white transition"
-              >
-                Sign Out
-              </button>
+            {/* Search Input with ⌘ K shortcut */}
+            <div className="hidden md:flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs text-zinc-400">
+              <Search size={14} className="text-zinc-400" />
+              <span>Search knowledge...</span>
+              <kbd className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 font-mono text-[10px] font-semibold text-zinc-500">
+                ⌘ K
+              </kbd>
             </div>
+
+            {/* Notification Bell Circle */}
+            <button
+              title="Notifications"
+              className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 hover:text-black hover:border-zinc-300 transition shadow-sm"
+            >
+              <Bell size={14} />
+            </button>
+
+            {/* User Avatar Circle */}
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white shadow-sm">
+              {userInitials}
+            </div>
+
+            {/* Header Sign Out Button */}
+            <button
+              onClick={logout}
+              className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50 hover:text-black transition shadow-sm"
+            >
+              Sign Out
+            </button>
           </div>
         </header>
 
         {/* Mobile Navigation Strip */}
-        <div className="flex gap-2 overflow-x-auto border-b border-line bg-[#121617]/95 px-4 py-2.5 lg:hidden scrollbar-none">
+        <div className="flex gap-2 overflow-x-auto border-b border-zinc-200 bg-white px-4 py-2.5 lg:hidden scrollbar-none">
           {[
             { id: "Overview", icon: LayoutDashboard },
             { id: "Ask your data", icon: MessageSquareText },
@@ -1351,8 +1506,10 @@ export default function Home() {
             <button
               key={id}
               onClick={() => setActiveView(id as View)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
-                activeView === id ? "bg-lime text-ink font-semibold" : "text-muted hover:text-white hover:bg-white/[.04]"
+              className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition ${
+                activeView === id
+                  ? "bg-black text-white font-medium shadow-sm"
+                  : "text-zinc-600 hover:text-black hover:bg-zinc-100"
               }`}
             >
               <Icon size={14} />
@@ -1361,7 +1518,7 @@ export default function Home() {
           ))}
         </div>
 
-        <div className="mx-auto max-w-[1240px] px-5 py-8 sm:px-8 sm:py-10">
+        <div className="mx-auto max-w-[1240px] px-5 py-6 sm:px-8 sm:py-8">
           {viewContent[activeView]}
         </div>
       </section>

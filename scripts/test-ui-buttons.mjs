@@ -34,7 +34,7 @@ testButton("Sign In Tab Button", "Auth", () => {
     "Sign In button must set isRegister to false to open login form"
   );
   assert.ok(
-    pageCode.includes('!isRegister ? "bg-white/[.08] text-white" : "text-muted hover:text-white"'),
+    pageCode.includes('!isRegister ? "bg-black text-white shadow-sm" : "text-zinc-500 hover:text-black"'),
     "Sign In button must have active visual styling when selected"
   );
 });

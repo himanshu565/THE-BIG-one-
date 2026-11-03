@@ -3,25 +3,35 @@
 @tailwind utilities;
 
 :root {
-  --background: #101315;
-  --foreground: #f2f4ed;
+  --background: #f4f5f7;
+  --foreground: #09090b;
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #f4f4f5;
 }
 
 * {
   box-sizing: border-box;
 }
 
+html,
 body {
-  background:
-    radial-gradient(circle at 80% -10%, rgba(139, 217, 210, 0.1), transparent 28rem),
-    var(--background);
+  background-color: var(--background);
   color: var(--foreground);
   margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -29,13 +39,29 @@ button {
   cursor: pointer;
 }
 
-.grid-texture {
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-  background-size: 32px 32px;
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-.scrollbar-hidden::-webkit-scrollbar {
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
+.scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
