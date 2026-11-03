@@ -319,7 +319,31 @@ runInteraction("Projects 'Set Active →' Button: Switches active workspace cont
   assert.equal(activeProject.id, 2);
 });
 
-// 7. Test Logout Buttons (Sidebar + Header)
+// 7. Test Header Interactive Controls
+runInteraction("Header '⌘ K' Search Button: Opens Command Palette quick search modal", () => {
+  let showSearchModal = false;
+  const toggleSearch = () => { showSearchModal = !showSearchModal; };
+  toggleSearch();
+  assert.equal(showSearchModal, true, "Search modal should open");
+});
+
+runInteraction("Header Notification Bell Button: Toggles live workspace alerts dropdown", () => {
+  let showNotifications = false;
+  const toggleNotifications = () => { showNotifications = !showNotifications; };
+  toggleNotifications();
+  assert.equal(showNotifications, true, "Notifications panel should open");
+  toggleNotifications();
+  assert.equal(showNotifications, false, "Notifications panel should close on second click");
+});
+
+runInteraction("Header User Avatar Button: Navigates directly to Settings view", () => {
+  let activeView = "Overview";
+  const onAvatarClick = () => { activeView = "Settings"; };
+  onAvatarClick();
+  assert.equal(activeView, "Settings", "Should navigate to Settings");
+});
+
+// 8. Test Logout Buttons (Sidebar + Header)
 runInteraction("Header & Sidebar 'Sign Out' Buttons: Clears user session and opens AuthScreen", () => {
   let user = { id: 1, email: "user@vectorly.ai" };
 

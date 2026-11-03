@@ -1313,6 +1313,24 @@ function Settings() {
 export default function Home() {
   const { user, loading, backendOnline, logout } = useAuth();
   const [activeView, setActiveView] = useState<View>("Overview");
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Keyboard shortcut: ⌘ K / Ctrl+K and ESC
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setShowSearchModal((prev) => !prev);
+      } else if (e.key === "Escape") {
+        setShowSearchModal(false);
+        setShowNotifications(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   if (loading) {
     return (
@@ -1460,27 +1478,62 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Search Input with ⌘ K shortcut */}
-            <div className="hidden md:flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs text-zinc-400">
+            {/* Search Input Button with ⌘ K shortcut */}
+            <button
+              onClick={() => setShowSearchModal(true)}
+              className="hidden md:flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs text-zinc-500 hover:border-zinc-300 hover:bg-white transition shadow-sm"
+            >
               <Search size={14} className="text-zinc-400" />
               <span>Search knowledge...</span>
               <kbd className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 font-mono text-[10px] font-semibold text-zinc-500">
                 ⌘ K
               </kbd>
-            </div>
-
-            {/* Notification Bell Circle */}
-            <button
-              title="Notifications"
-              className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 hover:text-black hover:border-zinc-300 transition shadow-sm"
-            >
-              <Bell size={14} />
             </button>
 
-            {/* User Avatar Circle */}
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white shadow-sm">
-              {userInitials}
+            {/* Notification Bell Circle */}
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                title="Notifications"
+                className="flex h-8 w-8 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 hover:text-black hover:border-zinc-300 transition shadow-sm relative"
+              >
+                <Bell size={14} />
+                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-80 rounded-2xl border border-zinc-200 bg-white p-4 shadow-elevated z-50">
+                  <div className="flex items-center justify-between border-b border-zinc-100 pb-2.5">
+                    <span className="text-xs font-bold text-zinc-900">Notifications</span>
+                    <button
+                      onClick={() => setShowNotifications(false)}
+                      className="text-[10px] font-medium text-zinc-400 hover:text-zinc-800"
+                    >
+                      Close
+                    </button>
+                  </div>
+                  <div className="mt-3 space-y-2.5 text-xs">
+                    <div className="rounded-xl bg-zinc-50 p-3 border border-zinc-100">
+                      <p className="font-semibold text-zinc-900">Hybrid RRF Engine Online</p>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">BM25 + Semantic fusion ready for retrieval queries.</p>
+                    </div>
+                    <div className="rounded-xl bg-zinc-50 p-3 border border-zinc-100">
+                      <p className="font-semibold text-zinc-900">Workspace Connected</p>
+                      <p className="text-[11px] text-zinc-500 mt-0.5">Active session scoped to {user.email}.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
+
+            {/* User Avatar Circle -> Opens Settings */}
+            <button
+              onClick={() => setActiveView("Settings")}
+              title="User Settings"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white shadow-sm hover:ring-2 hover:ring-zinc-400 transition"
+            >
+              {userInitials}
+            </button>
 
             {/* Header Sign Out Button */}
             <button
@@ -1522,6 +1575,65 @@ export default function Home() {
           {viewContent[activeView]}
         </div>
       </section>
+
+      {/* Quick Search / Command Palette Modal (⌘ K) */}
+      {showSearchModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-20 backdrop-blur-sm"
+          onClick={() => setShowSearchModal(false)}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white p-4 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2.5 border-b border-zinc-100 pb-3">
+              <Search size={16} className="text-zinc-400" />
+              <input
+                autoFocus
+                type="text"
+                placeholder="Search workspaces, documents, or jump to tabs..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-transparent text-sm text-zinc-900 outline-none placeholder:text-zinc-400"
+              />
+              <kbd className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500">
+                ESC
+              </kbd>
+            </div>
+
+            <div className="mt-3 space-y-1">
+              <p className="px-2 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-zinc-400">
+                Navigation Shortcuts
+              </p>
+              {[
+                { label: "Dashboard / Overview", view: "Overview" as View, icon: LayoutDashboard },
+                { label: "Ask your data (RAG Query)", view: "Ask your data" as View, icon: MessageSquareText },
+                { label: "Documents & Files", view: "Documents" as View, icon: FileText },
+                { label: "Project Workspaces", view: "Projects" as View, icon: FolderKanban },
+                { label: "Evaluations & Benchmarks", view: "Evaluations" as View, icon: BarChart3 },
+                { label: "Activity Timeline", view: "Activity" as View, icon: Activity },
+                { label: "Settings & API Config", view: "Settings" as View, icon: Settings2 },
+              ]
+                .filter((item) => item.label.toLowerCase().includes(searchQuery.toLowerCase()))
+                .map((item) => (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      setActiveView(item.view);
+                      setShowSearchModal(false);
+                      setSearchQuery("");
+                    }}
+                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-xs font-medium text-zinc-700 hover:bg-zinc-100 hover:text-black transition"
+                  >
+                    <item.icon size={15} className="text-zinc-400" />
+                    <span>{item.label}</span>
+                    <span className="ml-auto font-mono text-[10px] text-zinc-400">Jump →</span>
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

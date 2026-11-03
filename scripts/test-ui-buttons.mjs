@@ -118,6 +118,35 @@ testButton("Header 'Sign Out' Button", "Header", () => {
   );
 });
 
+testButton("Header Quick Search '⌘ K' Button", "Header", () => {
+  assert.ok(
+    pageCode.includes("onClick={() => setShowSearchModal(true)}"),
+    "Header search button must open the Quick Search / Command Palette modal"
+  );
+  assert.ok(
+    pageCode.includes("showSearchModal && ("),
+    "showSearchModal state must render the search modal"
+  );
+});
+
+testButton("Header Notification Bell Button", "Header", () => {
+  assert.ok(
+    pageCode.includes("onClick={() => setShowNotifications(!showNotifications)}"),
+    "Notification bell button must toggle notifications popover"
+  );
+  assert.ok(
+    pageCode.includes("showNotifications && ("),
+    "showNotifications state must render the notification popover panel"
+  );
+});
+
+testButton("Header User Avatar Button", "Header", () => {
+  assert.ok(
+    pageCode.includes('onClick={() => setActiveView("Settings")}'),
+    "Header user avatar button must navigate to Settings view"
+  );
+});
+
 console.log("\n--- 4. Testing Overview View Buttons ---");
 
 testButton("'Manage projects' Button in Overview", "Overview", () => {
