@@ -6,6 +6,7 @@ import { api, clearToken, getToken, Project, User } from "./api";
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  setLoading: (l: boolean) => void;
   backendOnline: boolean;
   projects: Project[];
   activeProject: Project | null;
@@ -20,6 +21,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
+  setLoading: () => {},
   backendOnline: false,
   projects: [],
   activeProject: null,
@@ -38,36 +40,83 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
 
-  // Check backend liveness and current user
+  // Check backend liveness and current user with strict 1.2s safety timeout
   useEffect(() => {
+    let isMounted = true;
+
+    // Safety timeout: NEVER let the UI hang on loading for more than 1.2 seconds
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 1200);
+
     async function init() {
+      // 1. Check health with 1s abort signal
+      const healthController = new AbortController();
+      const healthTimeout = setTimeout(() => healthController.abort(), 1000);
+
       try {
-        const res = await fetch("http://localhost:8000/health", { mode: "cors" });
-        if (res.ok) {
+        const res = await fetch("http://localhost:8000/health", {
+          signal: healthController.signal,
+          mode: "cors",
+        });
+        clearTimeout(healthTimeout);
+        if (res.ok && isMounted) {
           setBackendOnline(true);
         }
       } catch {
-        setBackendOnline(false);
+        clearTimeout(healthTimeout);
+        if (isMounted) setBackendOnline(false);
       }
 
+      // 2. Check token if present
       const token = getToken();
-      if (token) {
-        try {
-          const profile = await api.auth.getMe();
+      if (!token) {
+        if (isMounted) {
+          clearTimeout(safetyTimer);
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const profile = await Promise.race([
+          api.auth.getMe(),
+          new Promise<null>((_, reject) =>
+            setTimeout(() => reject(new Error("Token check timeout")), 1200)
+          ),
+        ]);
+
+        if (profile && isMounted) {
           setUser(profile);
-          const userProjects = await api.projects.list();
-          setProjects(userProjects);
-          if (userProjects.length > 0) {
-            setActiveProject(userProjects[0]);
+          try {
+            const userProjects = await api.projects.list();
+            if (isMounted) {
+              setProjects(userProjects);
+              if (userProjects.length > 0) {
+                setActiveProject(userProjects[0]);
+              }
+            }
+          } catch {
+            // Keep empty projects on project load failure
           }
-        } catch {
-          clearToken();
-          setUser(null);
+        }
+      } catch {
+        clearToken();
+        if (isMounted) setUser(null);
+      } finally {
+        if (isMounted) {
+          clearTimeout(safetyTimer);
+          setLoading(false);
         }
       }
-      setLoading(false);
     }
+
     init();
+
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyTimer);
+    };
   }, []);
 
   async function refreshProjects() {
@@ -140,6 +189,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         loading,
+        setLoading,
         backendOnline,
         projects,
         activeProject,
@@ -159,4 +209,3 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   return useContext(AuthContext);
 }
-

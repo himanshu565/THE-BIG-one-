@@ -80,15 +80,25 @@ function SectionHeading({
   title,
   description,
   action,
+  onBack,
 }: {
   eyebrow: string;
   title: string;
   description: string;
   action?: React.ReactNode;
+  onBack?: () => void;
 }) {
   return (
     <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
       <div>
+        {onBack && (
+          <button
+            onClick={onBack}
+            className="mb-2.5 flex items-center gap-1.5 font-mono text-xs font-semibold text-zinc-500 hover:text-black transition"
+          >
+            ← Back to Dashboard
+          </button>
+        )}
         <p className="mb-1 flex items-center gap-1.5 font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> {eyebrow}
         </p>
@@ -463,7 +473,7 @@ function ActivityList({ setView }: { setView?: (view: View) => void }) {
 // ---------------------------------------------------------
 // Documents Tab
 // ---------------------------------------------------------
-function Documents() {
+function Documents({ setView }: { setView?: (view: View) => void }) {
   const { activeProject } = useAuth();
   const [docs, setDocs] = useState<DocumentItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -551,6 +561,7 @@ function Documents() {
   return (
     <>
       <SectionHeading
+        onBack={setView ? () => setView("Overview") : undefined}
         eyebrow="Knowledge Base"
         title="Documents"
         description={
@@ -744,7 +755,7 @@ function Documents() {
 // ---------------------------------------------------------
 // Ask your data Tab
 // ---------------------------------------------------------
-function AskData() {
+function AskData({ setView }: { setView?: (view: View) => void }) {
   const { activeProject, projects, setActiveProject } = useAuth();
   const [question, setQuestion] = useState("");
   const [mode, setMode] = useState<"hybrid" | "bm25" | "semantic">("hybrid");
@@ -769,6 +780,7 @@ function AskData() {
   return (
     <>
       <SectionHeading
+        onBack={setView ? () => setView("Overview") : undefined}
         eyebrow="Retrieval Engine"
         title="Ask your data"
         description="Search across your indexed knowledge with verified grounded answers and citations."
@@ -907,7 +919,7 @@ function AskData() {
 // ---------------------------------------------------------
 // Projects Tab
 // ---------------------------------------------------------
-function Projects() {
+function Projects({ setView }: { setView?: (view: View) => void }) {
   const { projects, refreshProjects, activeProject, setActiveProject } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [name, setName] = useState("");
@@ -946,6 +958,7 @@ function Projects() {
   return (
     <>
       <SectionHeading
+        onBack={setView ? () => setView("Overview") : undefined}
         eyebrow="Workspaces"
         title="Projects"
         description="Organize knowledge bases and keep retrieval contexts focused."
@@ -1248,10 +1261,11 @@ function AuthScreen() {
 // ---------------------------------------------------------
 // Other Tab Views
 // ---------------------------------------------------------
-function Evaluations() {
+function Evaluations({ setView }: { setView?: (view: View) => void }) {
   return (
     <>
       <SectionHeading
+        onBack={setView ? () => setView("Overview") : undefined}
         eyebrow="Quality Signals"
         title="Evaluations"
         description="Track whether retrieval is returning useful, grounded context."
@@ -1276,11 +1290,12 @@ function Evaluations() {
   );
 }
 
-function Settings() {
+function Settings({ setView }: { setView?: (view: View) => void }) {
   const { user } = useAuth();
   return (
     <>
       <SectionHeading
+        onBack={setView ? () => setView("Overview") : undefined}
         eyebrow="Workspace Controls"
         title="Settings"
         description="Configure your retrieval workspace and API preferences."
@@ -1311,7 +1326,7 @@ function Settings() {
 // Root Layout / Main Component
 // ---------------------------------------------------------
 export default function Home() {
-  const { user, loading, backendOnline, logout } = useAuth();
+  const { user, loading, setLoading, backendOnline, logout, quickDemoLogin } = useAuth();
   const [activeView, setActiveView] = useState<View>("Overview");
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -1334,14 +1349,37 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f4f5f7]">
-        <div className="flex flex-col items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-black text-white animate-pulse">
-            <Layers3 size={20} />
+      <div className="flex min-h-screen items-center justify-center bg-[#f4f5f7] p-4">
+        <div className="w-full max-w-sm rounded-2xl border border-zinc-200/90 bg-white p-7 text-center shadow-elevated">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-black text-white shadow-sm">
+            <Layers3 size={20} className="animate-pulse" />
           </div>
-          <p className="font-mono text-xs text-zinc-500 tracking-wider">
+          <h2 className="mt-4 text-base font-bold text-zinc-900">
             Initializing Vectorly workspace...
+          </h2>
+          <p className="mt-1 font-mono text-xs text-zinc-500">
+            Connecting to backend API (localhost:8000)
           </p>
+
+          <div className="mt-6 flex flex-col gap-2.5">
+            <button
+              onClick={() => setLoading(false)}
+              className="w-full rounded-lg bg-black py-2.5 text-xs font-semibold text-white shadow-sm hover:bg-zinc-800 transition"
+            >
+              Continue to Sign In / Register →
+            </button>
+            <button
+              onClick={async () => {
+                setLoading(false);
+                try {
+                  await quickDemoLogin();
+                } catch {}
+              }}
+              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 py-2.5 text-xs font-semibold text-zinc-800 shadow-sm hover:bg-zinc-100 transition"
+            >
+              ⚡ 1-Click Instant Demo Login
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1362,21 +1400,22 @@ export default function Home() {
 
   const viewContent = {
     Overview: <Overview setView={setActiveView} />,
-    "Ask your data": <AskData />,
-    Documents: <Documents />,
-    Projects: <Projects />,
-    Evaluations: <Evaluations />,
+    "Ask your data": <AskData setView={setActiveView} />,
+    Documents: <Documents setView={setActiveView} />,
+    Projects: <Projects setView={setActiveView} />,
+    Evaluations: <Evaluations setView={setActiveView} />,
     Activity: (
       <>
         <SectionHeading
           eyebrow="Workspace Log"
           title="Activity"
           description="A timeline of changes, queries, and processing events."
+          onBack={() => setActiveView("Overview")}
         />
         <ActivityList />
       </>
     ),
-    Settings: <Settings />,
+    Settings: <Settings setView={setActiveView} />,
   };
 
   return (
@@ -1467,7 +1506,12 @@ export default function Home() {
         <header className="flex h-16 items-center justify-between border-b border-zinc-200/90 bg-white/90 px-5 sm:px-8 backdrop-blur-md">
           <div>
             <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium">
-              <span>Workspace</span>
+              <button
+                onClick={() => setActiveView("Overview")}
+                className="hover:text-black transition cursor-pointer"
+              >
+                Workspace
+              </button>
               <span>/</span>
               <span className="font-semibold text-zinc-900">{activeView}</span>
               <span className="ml-2 inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-0.5 font-mono text-[10px] font-medium text-zinc-700">
