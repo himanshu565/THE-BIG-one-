@@ -37,6 +37,10 @@ export interface DocumentChunk {
   created_at: string;
 }
 
+export interface DocumentDetail extends DocumentItem {
+  chunks: DocumentChunk[];
+}
+
 export interface SourceCitation {
   document_id: number;
   document_name: string;
@@ -115,6 +119,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  async health(): Promise<{ status: string }> {
+    const root = API_BASE.replace(/\/api\/v1\/?$/, "");
+    const res = await fetch(`${root}/health`);
+    if (!res.ok) throw new Error(`Health check failed with status ${res.status}`);
+    return res.json();
+  },
+
   auth: {
     async register(email: string, password: string, fullName?: string): Promise<User> {
       return request<User>("/auth/register", {
@@ -142,10 +153,19 @@ export const api = {
     async list(): Promise<Project[]> {
       return request<Project[]>("/projects");
     },
+    async get(id: number): Promise<Project> {
+      return request<Project>(`/projects/${id}`);
+    },
     async create(name: string, description?: string): Promise<Project> {
       return request<Project>("/projects", {
         method: "POST",
         body: JSON.stringify({ name, description }),
+      });
+    },
+    async update(id: number, payload: { name?: string; description?: string }): Promise<Project> {
+      return request<Project>(`/projects/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
       });
     },
     async delete(id: number): Promise<void> {
@@ -159,6 +179,9 @@ export const api = {
     async list(projectId: number, status?: string): Promise<DocumentItem[]> {
       const query = status ? `?status=${encodeURIComponent(status)}` : "";
       return request<DocumentItem[]>(`/projects/${projectId}/documents${query}`);
+    },
+    async get(projectId: number, documentId: number): Promise<DocumentDetail> {
+      return request<DocumentDetail>(`/projects/${projectId}/documents/${documentId}`);
     },
     async upload(projectId: number, file: File): Promise<DocumentItem> {
       const formData = new FormData();

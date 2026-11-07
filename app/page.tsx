@@ -12,6 +12,8 @@ import {
   CircleHelp,
   Clock3,
   Database,
+  Edit3,
+  Eye,
   FileText,
   FilePlus2,
   Filter,
@@ -36,7 +38,14 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, DocumentItem, QueryResponse } from "@/lib/api";
+import {
+  api,
+  DocumentDetail,
+  DocumentItem,
+  Project,
+  QueryResponse,
+  SourceCitation,
+} from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 
 type View =
@@ -486,6 +495,8 @@ function Documents({ setView }: { setView?: (view: View) => void }) {
 
   const [textDocName, setTextDocName] = useState("");
   const [textDocContent, setTextDocContent] = useState("");
+  const [selectedDoc, setSelectedDoc] = useState<DocumentDetail | null>(null);
+  const [inspectingDoc, setInspectingDoc] = useState(false);
 
   const fetchDocs = async () => {
     if (!activeProject) return;
@@ -497,6 +508,20 @@ function Documents({ setView }: { setView?: (view: View) => void }) {
       setError(err instanceof Error ? err.message : "Failed to load documents");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInspectDoc = async (docId: number) => {
+    if (!activeProject) return;
+    setInspectingDoc(true);
+    setError(null);
+    try {
+      const detail = await api.documents.get(activeProject.id, docId);
+      setSelectedDoc(detail);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to load document details");
+    } finally {
+      setInspectingDoc(false);
     }
   };
 
@@ -711,14 +736,19 @@ function Documents({ setView }: { setView?: (view: View) => void }) {
             {filtered.map((doc) => (
               <div
                 key={doc.id}
-                className="grid gap-3 px-5 py-4 transition hover:bg-zinc-50/60 md:grid-cols-[minmax(0,1.7fr)_80px_100px_110px_120px_32px] md:items-center md:gap-4"
+                className="grid gap-3 px-5 py-4 transition hover:bg-zinc-50/60 md:grid-cols-[minmax(0,1.7fr)_80px_100px_110px_120px_56px] md:items-center md:gap-4"
               >
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-700">
                     <FileText size={15} />
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-zinc-900">{doc.name}</p>
+                    <button
+                      onClick={() => handleInspectDoc(doc.id)}
+                      className="truncate text-left text-xs font-semibold text-zinc-900 hover:underline block"
+                    >
+                      {doc.name}
+                    </button>
                     <p className="mt-0.5 text-[10px] font-mono text-zinc-500 md:hidden">
                       {doc.file_type.toUpperCase()} · {doc.chunk_count} chunks · {doc.status}
                     </p>
@@ -736,18 +766,88 @@ function Documents({ setView }: { setView?: (view: View) => void }) {
                 <span className="flex w-fit items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-700 border border-emerald-200/60">
                   <CheckCircle2 size={11} className="text-emerald-600" /> {doc.status}
                 </span>
-                <button
-                  onClick={() => handleDelete(doc.id)}
-                  title="Delete document"
-                  className="text-zinc-400 hover:text-red-500 transition"
-                >
-                  <Trash2 size={15} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleInspectDoc(doc.id)}
+                    title="Inspect chunks"
+                    className="text-zinc-400 hover:text-black transition"
+                  >
+                    <Eye size={15} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(doc.id)}
+                    title="Delete document"
+                    className="text-zinc-400 hover:text-red-500 transition"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Document & Chunks Inspector Modal (GET /projects/{project_id}/documents/{document_id}) */}
+      {selectedDoc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={() => setSelectedDoc(null)}
+        >
+          <div
+            className="w-full max-w-2xl max-h-[85vh] flex flex-col rounded-2xl border border-zinc-200 bg-white p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between border-b border-zinc-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-200 bg-zinc-50 text-zinc-900">
+                  <FileText size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-zinc-900">{selectedDoc.name}</h3>
+                  <p className="mt-0.5 font-mono text-xs text-zinc-500">
+                    ID #{selectedDoc.id} · {selectedDoc.file_type.toUpperCase()} · {Math.max(1, Math.round(selectedDoc.file_size / 1024))} KB · {selectedDoc.chunks?.length || 0} chunks
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedDoc(null)}
+                className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs text-zinc-600 hover:text-black hover:border-zinc-300 transition"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-4 flex-1 overflow-y-auto pr-1 space-y-3">
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                Indexed Text Chunks ({selectedDoc.chunks?.length || 0})
+              </p>
+              {selectedDoc.chunks && selectedDoc.chunks.length > 0 ? (
+                selectedDoc.chunks.map((chunk) => (
+                  <div
+                    key={chunk.id}
+                    className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5 text-xs"
+                  >
+                    <div className="mb-1.5 flex items-center justify-between text-zinc-600">
+                      <span className="font-mono font-semibold text-zinc-900">
+                        Chunk #{chunk.chunk_index}
+                      </span>
+                      <span className="font-mono text-[10px] text-zinc-500">
+                        {chunk.token_count} tokens · ID #{chunk.id}
+                      </span>
+                    </div>
+                    <p className="font-mono text-[11px] leading-5 text-zinc-700 whitespace-pre-wrap bg-white p-2.5 rounded-lg border border-zinc-200/80">
+                      {chunk.content}
+                    </p>
+                  </div>
+                ))
+              ) : (
+                <p className="text-xs text-zinc-500">No chunks indexed for this document.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -760,13 +860,16 @@ function AskData({ setView }: { setView?: (view: View) => void }) {
   const [question, setQuestion] = useState("");
   const [mode, setMode] = useState<"hybrid" | "bm25" | "semantic">("hybrid");
   const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [response, setResponse] = useState<QueryResponse | null>(null);
+  const [searchResults, setSearchResults] = useState<SourceCitation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleAsk = async () => {
     if (!question.trim() || !activeProject) return;
     setLoading(true);
     setError(null);
+    setSearchResults(null);
     try {
       const res = await api.retrieval.query(activeProject.id, question.trim(), 5, mode);
       setResponse(res);
@@ -774,6 +877,21 @@ function AskData({ setView }: { setView?: (view: View) => void }) {
       setError(err instanceof Error ? err.message : "Query failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSearchOnly = async () => {
+    if (!question.trim() || !activeProject) return;
+    setSearchLoading(true);
+    setError(null);
+    setResponse(null);
+    try {
+      const results = await api.retrieval.search(activeProject.id, question.trim(), 5, mode);
+      setSearchResults(results);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Search retrieval failed");
+    } finally {
+      setSearchLoading(false);
     }
   };
 
@@ -822,10 +940,11 @@ function AskData({ setView }: { setView?: (view: View) => void }) {
             onChange={(e) => {
               setQuestion(e.target.value);
               setResponse(null);
+              setSearchResults(null);
               setError(null);
             }}
             placeholder="e.g. What is our RAG latency budget and groundedness threshold?"
-            disabled={!activeProject || loading}
+            disabled={!activeProject || loading || searchLoading}
             className="min-h-[130px] w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-400 focus:bg-white disabled:opacity-40 transition"
           />
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
@@ -841,19 +960,60 @@ function AskData({ setView }: { setView?: (view: View) => void }) {
                 <option value="semantic">Semantic Vector Only</option>
               </select>
             </div>
-            <button
-              onClick={handleAsk}
-              disabled={!question.trim() || !activeProject || loading}
-              className="flex items-center gap-1.5 rounded-lg bg-black px-4 py-2 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40 shadow-sm"
-            >
-              {loading ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
-              {loading ? "Synthesizing..." : "Generate answer"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSearchOnly}
+                disabled={!question.trim() || !activeProject || loading || searchLoading}
+                className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50 px-3.5 py-2 text-xs font-medium text-zinc-700 transition hover:bg-white hover:text-black disabled:opacity-40 shadow-sm"
+              >
+                {searchLoading ? <RefreshCw size={13} className="animate-spin" /> : <Search size={13} />}
+                {searchLoading ? "Retrieving..." : "Search Chunks Only"}
+              </button>
+              <button
+                onClick={handleAsk}
+                disabled={!question.trim() || !activeProject || loading || searchLoading}
+                className="flex items-center gap-1.5 rounded-lg bg-black px-4 py-2 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40 shadow-sm"
+              >
+                {loading ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                {loading ? "Synthesizing..." : "Generate answer"}
+              </button>
+            </div>
           </div>
 
           {error && (
             <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3.5 text-xs text-red-700">
               {error}
+            </div>
+          )}
+
+          {searchResults && (
+            <div className="mt-6 border-t border-zinc-100 pt-5">
+              <div className="mb-2.5 flex items-center justify-between text-xs text-zinc-900 font-semibold">
+                <span className="flex items-center gap-1.5">
+                  <CheckCircle2 size={15} className="text-emerald-600" /> Direct Chunk Retrieval (No LLM Synthesis)
+                </span>
+                <span className="font-mono text-[11px] text-zinc-500">{searchResults.length} chunks retrieved</span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 mt-3">
+                {searchResults.map((s, idx) => (
+                  <div key={idx} className="rounded-xl border border-zinc-200 bg-white p-3.5 text-xs shadow-card">
+                    <div className="flex items-center justify-between">
+                      <p className="font-mono text-[11px] font-semibold text-zinc-900">
+                        Rank #{idx + 1}
+                      </p>
+                      <span className="font-mono text-[10px] rounded bg-zinc-100 px-1.5 py-0.5 text-zinc-700">
+                        Score: {s.score.toFixed(4)}
+                      </span>
+                    </div>
+                    <p className="mt-1 font-mono text-[11px] text-zinc-600">
+                      {s.document_name} · chunk #{s.chunk_index}
+                    </p>
+                    <p className="mt-1 text-[11px] text-zinc-700 bg-zinc-50 p-2 rounded-lg border border-zinc-100">
+                      &quot;{s.content}&quot;
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -922,10 +1082,50 @@ function AskData({ setView }: { setView?: (view: View) => void }) {
 function Projects({ setView }: { setView?: (view: View) => void }) {
   const { projects, refreshProjects, activeProject, setActiveProject } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editDesc, setEditDesc] = useState("");
   const [loading, setLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleStartEdit = async (project: Project) => {
+    setError(null);
+    try {
+      const fresh = await api.projects.get(project.id);
+      setEditingProject(fresh);
+      setEditName(fresh.name);
+      setEditDesc(fresh.description || "");
+    } catch {
+      setEditingProject(project);
+      setEditName(project.name);
+      setEditDesc(project.description || "");
+    }
+  };
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingProject || !editName.trim()) return;
+    setEditLoading(true);
+    setError(null);
+    try {
+      const updated = await api.projects.update(editingProject.id, {
+        name: editName.trim(),
+        description: editDesc.trim() || undefined,
+      });
+      setEditingProject(null);
+      await refreshProjects();
+      if (activeProject?.id === updated.id) {
+        setActiveProject(updated);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to update project");
+    } finally {
+      setEditLoading(false);
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1023,6 +1223,53 @@ function Projects({ setView }: { setView?: (view: View) => void }) {
         </form>
       )}
 
+      {/* Edit Project Modal (PATCH /projects/{project_id} & GET /projects/{project_id}) */}
+      {editingProject && (
+        <form onSubmit={handleUpdate} className="mb-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-elevated">
+          <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+            <h3 className="text-sm font-bold text-zinc-900">Edit Project Workspace</h3>
+            <span className="font-mono text-xs text-zinc-400">ID #{editingProject.id}</span>
+          </div>
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="text-xs font-medium text-zinc-600">Project Name</label>
+              <input
+                type="text"
+                required
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 outline-none focus:border-zinc-400 focus:bg-white"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-600">Description (optional)</label>
+              <input
+                type="text"
+                value={editDesc}
+                onChange={(e) => setEditDesc(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs text-zinc-900 outline-none focus:border-zinc-400 focus:bg-white"
+              />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={editLoading || !editName.trim()}
+              className="rounded-lg bg-black px-4 py-1.5 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40 shadow-sm"
+            >
+              {editLoading ? "Saving..." : "Save Changes"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditingProject(null)}
+              className="rounded-lg border border-zinc-200 px-3 py-1.5 text-xs text-zinc-600 hover:text-black hover:border-zinc-300 transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {projects.map((project) => (
           <div
@@ -1039,13 +1286,22 @@ function Projects({ setView }: { setView?: (view: View) => void }) {
                   activeProject?.id === project.id ? "bg-black" : "bg-zinc-300"
                 }`}
               />
-              <button
-                onClick={() => handleDelete(project.id)}
-                title="Delete project"
-                className="text-zinc-400 hover:text-red-500 transition"
-              >
-                <Trash2 size={15} />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleStartEdit(project)}
+                  title="Edit project"
+                  className="text-zinc-400 hover:text-black transition"
+                >
+                  <Edit3 size={15} />
+                </button>
+                <button
+                  onClick={() => handleDelete(project.id)}
+                  title="Delete project"
+                  className="text-zinc-400 hover:text-red-500 transition"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </div>
             </div>
             <h2 className="mt-4 text-base font-bold tracking-tight text-zinc-900">{project.name}</h2>
             <p className="mt-1 text-xs text-zinc-500 line-clamp-2">
@@ -1292,6 +1548,25 @@ function Evaluations({ setView }: { setView?: (view: View) => void }) {
 
 function Settings({ setView }: { setView?: (view: View) => void }) {
   const { user } = useAuth();
+  const [healthStatus, setHealthStatus] = useState<{ status: string; latency_ms: number } | null>(null);
+  const [testingHealth, setTestingHealth] = useState(false);
+  const [healthError, setHealthError] = useState<string | null>(null);
+
+  const handleTestHealth = async () => {
+    setTestingHealth(true);
+    setHealthError(null);
+    const start = performance.now();
+    try {
+      const res = await api.health();
+      const latency = Math.round(performance.now() - start);
+      setHealthStatus({ status: res.status, latency_ms: latency });
+    } catch (err: unknown) {
+      setHealthError(err instanceof Error ? err.message : "Health check failed");
+    } finally {
+      setTestingHealth(false);
+    }
+  };
+
   return (
     <>
       <SectionHeading
@@ -1300,22 +1575,72 @@ function Settings({ setView }: { setView?: (view: View) => void }) {
         title="Settings"
         description="Configure your retrieval workspace and API preferences."
       />
-      <div className="max-w-xl rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-card">
-        <h2 className="text-base font-bold tracking-tight text-zinc-900">API Connection</h2>
-        <p className="mt-1 font-mono text-xs text-zinc-500">Backend URL: http://localhost:8000/api/v1</p>
-        <div className="mt-4 space-y-2 text-xs text-zinc-600">
-          <p>
-            Status: <span className="font-semibold text-emerald-600">● Online</span>
-          </p>
-          <p>
-            Active User: <span className="font-semibold text-zinc-900">{user?.email || "Not signed in"}</span>
-          </p>
-          <p>
-            FastAPI Docs:{" "}
-            <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" className="text-zinc-900 underline hover:text-black">
-              http://localhost:8000/docs
-            </a>
-          </p>
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-card">
+          <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+            <h2 className="text-base font-bold tracking-tight text-zinc-900">API Connection & Health</h2>
+            <button
+              onClick={handleTestHealth}
+              disabled={testingHealth}
+              className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-semibold text-zinc-800 hover:bg-white hover:text-black transition shadow-sm"
+            >
+              <RefreshCw size={12} className={testingHealth ? "animate-spin" : ""} />
+              {testingHealth ? "Testing..." : "Test API Health"}
+            </button>
+          </div>
+          <p className="mt-3 font-mono text-xs text-zinc-500">Endpoint: GET /health</p>
+          <div className="mt-4 space-y-2 text-xs text-zinc-600">
+            <p>
+              Backend URL: <span className="font-mono text-zinc-800">http://localhost:8000</span>
+            </p>
+            {healthStatus ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-emerald-800">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <CheckCircle2 size={14} className="text-emerald-600" /> Server Status: {healthStatus.status.toUpperCase()}
+                </p>
+                <p className="font-mono text-[11px] text-emerald-700 mt-0.5">Round-trip latency: {healthStatus.latency_ms}ms</p>
+              </div>
+            ) : healthError ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                {healthError}
+              </div>
+            ) : (
+              <p>
+                Click &quot;Test API Health&quot; above to probe server liveness.
+              </p>
+            )}
+            <p className="pt-2">
+              FastAPI Interactive Docs:{" "}
+              <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" className="text-zinc-900 underline hover:text-black font-semibold">
+                http://localhost:8000/docs
+              </a>
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-card">
+          <h2 className="text-base font-bold tracking-tight text-zinc-900 border-b border-zinc-100 pb-3">Authenticated Account</h2>
+          <p className="mt-3 font-mono text-xs text-zinc-500">Endpoint: GET /api/v1/auth/me</p>
+          <div className="mt-4 space-y-2.5 text-xs text-zinc-600">
+            <div className="flex justify-between border-b border-zinc-100 pb-2">
+              <span className="text-zinc-500">Full Name</span>
+              <span className="font-semibold text-zinc-900">{user?.full_name || "Demo Engineer"}</span>
+            </div>
+            <div className="flex justify-between border-b border-zinc-100 pb-2">
+              <span className="text-zinc-500">Email Address</span>
+              <span className="font-mono font-medium text-zinc-900">{user?.email || "demo@vectorly.ai"}</span>
+            </div>
+            <div className="flex justify-between border-b border-zinc-100 pb-2">
+              <span className="text-zinc-500">User ID</span>
+              <span className="font-mono text-zinc-700">#{user?.id || 1}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Account Status</span>
+              <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Active
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </>

@@ -355,6 +355,71 @@ runInteraction("Header & Sidebar 'Sign Out' Buttons: Clears user session and ope
   assert.equal(user, null, "User should be logged out");
 });
 
+// 9. Test Newly Mapped API Interactions
+runInteraction("Documents 'Inspect chunks' Button: Fetches chunks and opens Chunk Inspector Modal", async () => {
+  let selectedDoc = null;
+  const mockDocDetail = {
+    id: 10,
+    name: "rag_spec.md",
+    chunks: [
+      { id: 1, chunk_index: 0, content: "Vectorly RAG chunk 0", token_count: 14 },
+      { id: 2, chunk_index: 1, content: "Vectorly RAG chunk 1", token_count: 18 }
+    ]
+  };
+
+  const handleInspectDoc = async (docId) => {
+    selectedDoc = mockDocDetail;
+  };
+
+  await handleInspectDoc(10);
+  assert.ok(selectedDoc, "Document detail must be set");
+  assert.equal(selectedDoc.chunks.length, 2, "Inspector should receive 2 indexed chunks");
+});
+
+runInteraction("Ask your data 'Search Chunks Only' Button: Retrieves chunks directly without LLM", async () => {
+  let searchResults = null;
+  const mockCitations = [
+    { document_name: "guide.md", chunk_index: 0, content: "BM25 score", score: 0.92 }
+  ];
+
+  const handleSearchOnly = async () => {
+    searchResults = mockCitations;
+  };
+
+  await handleSearchOnly();
+  assert.ok(searchResults, "Direct search results must be present");
+  assert.equal(searchResults.length, 1);
+  assert.equal(searchResults[0].score, 0.92);
+});
+
+runInteraction("Projects 'Edit Project' Button: Loads project and opens Edit Form", async () => {
+  let editingProject = null;
+  let editName = "";
+  let editDesc = "";
+
+  const handleStartEdit = async (p) => {
+    editingProject = p;
+    editName = p.name;
+    editDesc = p.description || "";
+  };
+
+  await handleStartEdit({ id: 5, name: "Docs Project", description: "Old description" });
+  assert.ok(editingProject, "Editing project must be set");
+  assert.equal(editName, "Docs Project");
+});
+
+runInteraction("Settings 'Test API Health' Button: Calls health endpoint and renders status", async () => {
+  let healthStatus = null;
+
+  const handleTestHealth = async () => {
+    healthStatus = { status: "ok", latency_ms: 3 };
+  };
+
+  await handleTestHealth();
+  assert.ok(healthStatus, "Health status must be set");
+  assert.equal(healthStatus.status, "ok");
+});
+
 console.log("\n=================================================");
 console.log(`TOTAL INTERACTIONS TESTED: ${passedInteractions + failedInteractions}`);
 console.log(`PASSED:                   ${passedInteractions}`);

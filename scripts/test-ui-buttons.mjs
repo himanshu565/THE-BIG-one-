@@ -245,6 +245,25 @@ testButton("Delete Document Trash Button", "Documents", () => {
   );
 });
 
+testButton("Inspect Chunks Button", "Documents", () => {
+  assert.ok(
+    pageCode.includes('title="Inspect chunks"'),
+    "Document row must have an inspect chunks button"
+  );
+  assert.ok(
+    pageCode.includes("onClick={() => handleInspectDoc(doc.id)}"),
+    "Inspect button must trigger handleInspectDoc"
+  );
+  assert.ok(
+    pageCode.includes("api.documents.get(activeProject.id, docId)"),
+    "handleInspectDoc must call api.documents.get to fetch chunks"
+  );
+  assert.ok(
+    pageCode.includes("selectedDoc && ("),
+    "Fetching document details must open the Document & Chunks Inspector Modal"
+  );
+});
+
 console.log("\n--- 6. Testing 'Ask your data' View Buttons ---");
 
 testButton("'Generate answer' Button", "AskData", () => {
@@ -259,6 +278,21 @@ testButton("'Generate answer' Button", "AskData", () => {
   assert.ok(
     pageCode.includes("response && ("),
     "handleAsk success must open and display the Grounded Answer and citations"
+  );
+});
+
+testButton("'Search Chunks Only' Button", "AskData", () => {
+  assert.ok(
+    pageCode.includes("onClick={handleSearchOnly}"),
+    "Search button must trigger handleSearchOnly"
+  );
+  assert.ok(
+    pageCode.includes("api.retrieval.search(activeProject.id, question.trim(), 5, mode)"),
+    "handleSearchOnly must call api.retrieval.search directly without LLM"
+  );
+  assert.ok(
+    pageCode.includes("searchResults && ("),
+    "handleSearchOnly success must open and display the raw retrieved chunks"
   );
 });
 
@@ -304,10 +338,53 @@ testButton("Delete Project Trash Button", "Projects", () => {
   );
 });
 
+testButton("Edit Project Button", "Projects", () => {
+  assert.ok(
+    pageCode.includes('title="Edit project"'),
+    "Project card must have an edit project button"
+  );
+  assert.ok(
+    pageCode.includes("onClick={() => handleStartEdit(project)}"),
+    "Edit project button must trigger handleStartEdit"
+  );
+  assert.ok(
+    pageCode.includes("api.projects.get(project.id)"),
+    "handleStartEdit must fetch single project details"
+  );
+  assert.ok(
+    pageCode.includes("editingProject && ("),
+    "handleStartEdit must open the Edit Project Workspace modal"
+  );
+});
+
+testButton("'Save Changes' Project Edit Submit Button", "Projects", () => {
+  assert.ok(
+    pageCode.includes("onSubmit={handleUpdate}"),
+    "Edit project modal form must trigger handleUpdate on submit"
+  );
+  assert.ok(
+    pageCode.includes("api.projects.update(editingProject.id"),
+    "handleUpdate must call api.projects.update with new name and description"
+  );
+});
+
 testButton("'Set Active →' Project Button", "Projects", () => {
   assert.ok(
     pageCode.includes("onClick={() => setActiveProject(project)}"),
     "Set Active button on project cards must trigger setActiveProject"
+  );
+});
+
+console.log("\n--- 8. Testing Settings View Buttons ---");
+
+testButton("'Test API Health' Button", "Settings", () => {
+  assert.ok(
+    pageCode.includes("onClick={handleTestHealth}"),
+    "Settings view must have Test API Health button triggering handleTestHealth"
+  );
+  assert.ok(
+    pageCode.includes("api.health()"),
+    "handleTestHealth must call api.health() endpoint"
   );
 });
 
