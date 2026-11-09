@@ -28,12 +28,39 @@ class Settings(BaseSettings):
         default=60, validation_alias="JWT_ACCESS_TOKEN_EXPIRE_MINUTES"
     )
 
+    # Security & Anti-Hack Configuration
+    cors_origins: list[str] | str = Field(
+        default=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8000"],
+        validation_alias="CORS_ORIGINS",
+    )
+    rate_limit_enabled: bool = Field(default=True, validation_alias="RATE_LIMIT_ENABLED")
+    auth_rate_limit_per_minute: int = Field(
+        default=20, validation_alias="AUTH_RATE_LIMIT_PER_MINUTE"
+    )
+    query_rate_limit_per_minute: int = Field(
+        default=60, validation_alias="QUERY_RATE_LIMIT_PER_MINUTE"
+    )
+    global_rate_limit_per_minute: int = Field(
+        default=300, validation_alias="GLOBAL_RATE_LIMIT_PER_MINUTE"
+    )
+    max_upload_size_bytes: int = Field(
+        default=10 * 1024 * 1024, validation_alias="MAX_UPLOAD_SIZE_BYTES"  # 10 MB
+    )
+    prompt_guard_enabled: bool = Field(default=True, validation_alias="PROMPT_GUARD_ENABLED")
+
     model_config = SettingsConfigDict(
         env_file=(".env", "backend/.env"),
         env_file_encoding="utf-8",
         extra="ignore",
         case_sensitive=False,
     )
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Return CORS origins as a list of strings."""
+        if isinstance(self.cors_origins, str):
+            return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        return list(self.cors_origins)
 
     @field_validator(
         "app_env",
