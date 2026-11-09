@@ -20,8 +20,9 @@
 - 🧠 **Grounded Answer Synthesis**: Pluggable LLM interface producing grounded answers with verifiable source document citations and chunk indices.
 - 📄 **Multi-Format Ingestion**: Sliding-window chunker supporting `.md`, `.txt`, `.csv`, and file uploads with sentence-boundary preservation.
 - 🚀 **Zero-Config Local Development**: Pre-configured file-based SQLite database with automatic table initialization on launch—zero database servers required to get started. Seamlessly toggle to PostgreSQL in `.env`.
-- 📱 **Fully Responsive UI**: Modern dark-themed dashboard with desktop sidebar, mobile scrollable navigation bar, and inline modal management.
-- 🧪 **Comprehensive Automated Verification**: 31 backend pytest tests and 29-button automated frontend UI test suite.
+- 🛡️ **Enterprise Anti-Hack Security Shield**: OWASP security headers (HSTS, strict CSP, X-Frame-Options: DENY, X-Content-Type-Options: nosniff), tiered sliding-window rate limiting per IP (20/min Auth, 60/min Queries, 300/min Global), path-traversal sanitization, 10MB upload cap, strict extension whitelisting, and adversarial prompt injection filtering.
+- 📱 **Fully Responsive Minimalist UI**: High-contrast monochrome interface with global Command Palette (`⌘ K` / `Ctrl+K`), desktop sidebar, mobile navigation strip, and interactive modal chunk inspectors.
+- 🧪 **Comprehensive Automated Verification**: 42 backend pytest tests (including 11 dedicated security tests) and a 37-button / 34-interaction automated frontend test suite.
 
 ---
 

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.sanitizer import sanitize_text
 from app.db.database import get_db
 from app.models.user import User
 from app.repositories import projects
@@ -17,10 +18,12 @@ def create_project(
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
     """Create a new project owned by the authenticated user."""
+    safe_name = sanitize_text(payload.name, max_length=100)
+    safe_desc = sanitize_text(payload.description, max_length=500) if payload.description else None
     return projects.create_project(
         db,
-        name=payload.name,
-        description=payload.description,
+        name=safe_name,
+        description=safe_desc,
         owner_id=current_user.id,
     )
 
@@ -55,11 +58,17 @@ def update_project(
     db: Session = Depends(get_db),
 ) -> ProjectResponse:
     """Update a project by ID, scoped to the authenticated owner."""
+    update_data = payload.model_dump(exclude_unset=True)
+    if "name" in update_data and update_data["name"] is not None:
+        update_data["name"] = sanitize_text(update_data["name"], max_length=100)
+    if "description" in update_data and update_data["description"] is not None:
+        update_data["description"] = sanitize_text(update_data["description"], max_length=500)
+
     project = projects.update_project(
         db,
         project_id=project_id,
         owner_id=current_user.id,
-        **payload.model_dump(exclude_unset=True),
+        **update_data,
     )
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")

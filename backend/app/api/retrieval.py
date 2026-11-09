@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.config.settings import get_settings
+from app.core.sanitizer import guard_prompt_query
 from app.db.database import get_db
 from app.models.user import User
 from app.repositories import projects
@@ -33,21 +34,29 @@ def query_project_knowledge_base(
 ) -> QueryResponse:
     """Submit a question to the project knowledge base, run hybrid retrieval, and generate a grounded answer."""
     _verify_project_ownership(db, project_id=project_id, user_id=current_user.id)
+    settings = get_settings()
+
+    # Guard against prompt injection and adversarial delimiter hijacking
+    question = (
+        guard_prompt_query(payload.question)
+        if settings.prompt_guard_enabled
+        else payload.question
+    )
+
     start_time = time.perf_counter()
 
     sources = retrieve_chunks(
         db,
         project_id=project_id,
-        query=payload.question,
+        query=question,
         top_k=payload.top_k,
         mode=payload.mode,
     )
 
     llm = get_llm_provider()
-    answer = llm.generate_grounded_answer(payload.question, sources)
+    answer = llm.generate_grounded_answer(question, sources)
     latency_ms = int((time.perf_counter() - start_time) * 1000)
 
-    settings = get_settings()
     return QueryResponse(
         question=payload.question,
         answer=answer,
@@ -68,10 +77,18 @@ def search_project_chunks(
 ) -> list[SourceCitation]:
     """Retrieve top-K source chunks without LLM synthesis."""
     _verify_project_ownership(db, project_id=project_id, user_id=current_user.id)
+    settings = get_settings()
+
+    question = (
+        guard_prompt_query(payload.question)
+        if settings.prompt_guard_enabled
+        else payload.question
+    )
+
     return retrieve_chunks(
         db,
         project_id=project_id,
-        query=payload.question,
+        query=question,
         top_k=payload.top_k,
         mode=payload.mode,
     )

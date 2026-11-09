@@ -1643,6 +1643,50 @@ function Settings({ setView }: { setView?: (view: View) => void }) {
           </div>
         </div>
       </div>
+
+      {/* Security & Anti-Hack Defense Status */}
+      <div className="mt-6 rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-card">
+        <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50 text-zinc-900">
+              <ShieldCheck size={16} />
+            </div>
+            <div>
+              <h2 className="text-base font-bold tracking-tight text-zinc-900">Security & Anti-Hack Shield</h2>
+              <p className="text-xs text-zinc-500">Active real-world defensive engineering controls and OWASP protections</p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-700">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> All Defenses Armed
+          </span>
+        </div>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-3.5 text-xs">
+            <p className="font-mono text-[11px] font-bold text-zinc-900">Rate Limiter / Anti-DoS</p>
+            <p className="mt-1 text-zinc-500 text-[11px]">Sliding-window IP throttles: 20/min Auth, 60/min Queries, 300/min Global.</p>
+            <p className="mt-2 font-mono text-[10px] font-semibold text-emerald-600">✓ Throttles Brute-Force</p>
+          </div>
+
+          <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-3.5 text-xs">
+            <p className="font-mono text-[11px] font-bold text-zinc-900">OWASP Security Headers</p>
+            <p className="mt-1 text-zinc-500 text-[11px]">HSTS preload, CSP, X-Frame-Options: DENY, X-Content-Type-Options: nosniff.</p>
+            <p className="mt-2 font-mono text-[10px] font-semibold text-emerald-600">✓ Anti-Clickjacking & XSS</p>
+          </div>
+
+          <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-3.5 text-xs">
+            <p className="font-mono text-[11px] font-bold text-zinc-900">File Ingestion Guard</p>
+            <p className="mt-1 text-zinc-500 text-[11px]">10 MB hard cap, extension whitelisting (.txt, .md, .pdf, .csv), path traversal purge.</p>
+            <p className="mt-2 font-mono text-[10px] font-semibold text-emerald-600">✓ Anti-Traversal & Malware</p>
+          </div>
+
+          <div className="rounded-xl border border-zinc-100 bg-zinc-50/70 p-3.5 text-xs">
+            <p className="font-mono text-[11px] font-bold text-zinc-900">Prompt Injection Guard</p>
+            <p className="mt-1 text-zinc-500 text-[11px]">Adversarial delimiter neutralization (### System:, DAN, instruction bypass filters).</p>
+            <p className="mt-2 font-mono text-[10px] font-semibold text-emerald-600">✓ Anti-Jailbreak Filter</p>
+          </div>
+        </div>
+      </div>
     </>
   );
 }

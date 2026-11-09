@@ -11,6 +11,8 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.config.settings import get_settings
+from app.core.sanitizer import sanitize_filename, validate_file_extension
 from app.db.database import get_db
 from app.models.user import User
 from app.repositories import documents, projects
@@ -39,8 +41,30 @@ async def upload_document(
     """Upload a file to the project, parse it into text chunks, and index it for retrieval."""
     _verify_project_ownership(db, project_id=project_id, user_id=current_user.id)
 
+    raw_filename = file.filename or "untitled.txt"
+
+    # 1. Path traversal sanitization
+    filename = sanitize_filename(raw_filename)
+
+    # 2. File extension whitelist verification
+    try:
+        validate_file_extension(filename)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    # 3. Size limit verification (Anti-DoS / Anti-Memory-Exhaustion)
     raw_bytes = await file.read()
-    filename = file.filename or "untitled.txt"
+    settings = get_settings()
+    if len(raw_bytes) > settings.max_upload_size_bytes:
+        max_mb = settings.max_upload_size_bytes // (1024 * 1024)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Uploaded file exceeds maximum limit of {max_mb} MB.",
+        )
+
     file_type, content = extract_file_info(filename, raw_bytes)
 
     doc = documents.create_document(
@@ -65,11 +89,22 @@ def create_document(
     """Create a document from raw text content and index its chunks."""
     _verify_project_ownership(db, project_id=project_id, user_id=current_user.id)
 
-    size = len(payload.content.encode("utf-8"))
+    filename = sanitize_filename(payload.name)
+    raw_encoded = payload.content.encode("utf-8")
+    settings = get_settings()
+
+    if len(raw_encoded) > settings.max_upload_size_bytes:
+        max_mb = settings.max_upload_size_bytes // (1024 * 1024)
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Document content exceeds maximum limit of {max_mb} MB.",
+        )
+
+    size = len(raw_encoded)
     doc = documents.create_document(
         db,
         project_id=project_id,
-        name=payload.name,
+        name=filename,
         file_type=payload.file_type,
         file_size=size,
         content=payload.content,

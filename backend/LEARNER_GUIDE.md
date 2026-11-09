@@ -81,6 +81,14 @@ PostgreSQL / SQLite database (managed via Alembic migrations)
 - Abstract `BaseLLMProvider` decouples the API and retrieval pipeline from specific LLM vendors.
 - `MockLLMProvider` synthesizes grounded answers with citations during development and automated tests.
 
+### Multi-Layered Anti-Hack Security Architecture
+
+- **OWASP Security Headers**: Enforces HSTS, Content-Security-Policy (CSP), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and `Permissions-Policy` to block clickjacking, MIME confusion, and XSS.
+- **Sliding-Window Rate Limiting**: Throttles requests per client IP across tiered thresholds (20/min for auth, 60/min for queries/uploads, 300/min global) with `HTTP 429` and `Retry-After` to prevent brute-force attacks and DoS.
+- **File Ingestion Firewall**: Limits uploads to 10 MB (`HTTP 413`), enforces strict extension whitelisting (`.txt, .md, .pdf, .csv`), and strips directory traversal markers (`Path.name`).
+- **Prompt Injection & Adversarial Guard**: Sanitizes adversarial jailbreak phrases and system prompt overrides (`### System:`, `[INST]`, `Ignore previous instructions`) before retrieval and synthesis.
+- **Hardened CORS Policy**: Scopes cross-origin resource sharing to designated frontend origins with explicit credential checks.
+
 ## 4. Project structure
 
 ```text
@@ -99,7 +107,10 @@ backend/
 │   ├── config/
 │   │   └── settings.py       # Environment-backed application settings
 │   ├── core/
-│   │   └── security.py       # Password hashing & JWT generation/decoding
+│   │   ├── rate_limit.py     # Sliding-window rate limiting middleware
+│   │   ├── sanitizer.py      # Path traversal, XSS, and prompt injection filters
+│   │   ├── security.py       # Password hashing & JWT generation/decoding
+│   │   └── security_headers.py # OWASP defensive security headers middleware
 │   ├── db/
 │   │   └── database.py       # SQLAlchemy engine, Base, and session dependency
 │   ├── models/
@@ -129,6 +140,7 @@ backend/
 │   ├── test_projects_api.py
 │   ├── test_projects_repository.py
 │   ├── test_retrieval.py
+│   ├── test_security.py
 │   ├── test_settings.py
 │   └── test_users_repository.py
 └── requirements.txt
