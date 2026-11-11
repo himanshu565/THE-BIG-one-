@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.config.settings import get_settings
-from app.core.rate_limit import reset_rate_limiters
 from app.core.sanitizer import (
     guard_prompt_query,
     sanitize_filename,
@@ -45,14 +44,6 @@ def client() -> Generator[TestClient, None, None]:
     finally:
         app.dependency_overrides.pop(get_db, None)
         engine.dispose()
-
-
-@pytest.fixture(autouse=True)
-def clean_rate_limiters():
-    """Reset sliding-window rate limiters before and after each test."""
-    reset_rate_limiters()
-    yield
-    reset_rate_limiters()
 
 
 # -------------------------------------------------------------

@@ -1,4 +1,8 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+export const API_BASE = (
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1"
+).replace(/\/+$/, "");
+
+export const API_ROOT = API_BASE.replace(/\/api\/v1$/, "");
 
 export interface User {
   id: number;
@@ -119,9 +123,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  async health(): Promise<{ status: string }> {
-    const root = API_BASE.replace(/\/api\/v1\/?$/, "");
-    const res = await fetch(`${root}/health`);
+  async health(options: RequestInit = {}): Promise<{ status: string }> {
+    const res = await fetch(`${API_ROOT}/health`, options);
     if (!res.ok) throw new Error(`Health check failed with status ${res.status}`);
     return res.json();
   },

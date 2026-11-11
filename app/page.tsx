@@ -2,15 +2,10 @@
 
 import {
   Activity,
-  AlertCircle,
   ArrowUpRight,
   BarChart3,
   Bell,
-  BookOpen,
   CheckCircle2,
-  ChevronDown,
-  CircleHelp,
-  Clock3,
   Database,
   Edit3,
   Eye,
@@ -18,12 +13,10 @@ import {
   FilePlus2,
   Filter,
   FolderKanban,
-  Gauge,
   Layers3,
   LayoutDashboard,
   LogOut,
   MessageSquareText,
-  MoreHorizontal,
   Plus,
   RefreshCw,
   Search,
@@ -37,9 +30,10 @@ import {
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   api,
+  API_ROOT,
   DocumentDetail,
   DocumentItem,
   Project,
@@ -125,7 +119,7 @@ function SectionHeading({
 // Overview Tab
 // ---------------------------------------------------------
 function Overview({ setView }: { setView: (view: View) => void }) {
-  const { user, projects, activeProject, setActiveProject } = useAuth();
+  const { projects, activeProject } = useAuth();
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [queryResult, setQueryResult] = useState<QueryResponse | null>(null);
@@ -133,13 +127,15 @@ function Overview({ setView }: { setView: (view: View) => void }) {
   const [recentDocs, setRecentDocs] = useState<DocumentItem[]>([]);
 
   useEffect(() => {
-    if (activeProject) {
-      api.documents
-        .list(activeProject.id)
-        .then((docs) => setRecentDocs(docs))
-        .catch(() => setRecentDocs([]));
+    if (!activeProject) {
+      setRecentDocs([]);
+      return;
     }
-  }, [activeProject?.id]);
+    api.documents
+      .list(activeProject.id)
+      .then((docs) => setRecentDocs(docs))
+      .catch(() => setRecentDocs([]));
+  }, [activeProject]);
 
   const handleRunQuery = async () => {
     if (!question.trim() || !activeProject) return;
@@ -498,8 +494,11 @@ function Documents({ setView }: { setView?: (view: View) => void }) {
   const [selectedDoc, setSelectedDoc] = useState<DocumentDetail | null>(null);
   const [inspectingDoc, setInspectingDoc] = useState(false);
 
-  const fetchDocs = async () => {
-    if (!activeProject) return;
+  const fetchDocs = useCallback(async () => {
+    if (!activeProject) {
+      setDocs([]);
+      return;
+    }
     setLoading(true);
     try {
       const list = await api.documents.list(activeProject.id);
@@ -509,7 +508,7 @@ function Documents({ setView }: { setView?: (view: View) => void }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeProject]);
 
   const handleInspectDoc = async (docId: number) => {
     if (!activeProject) return;
@@ -527,7 +526,7 @@ function Documents({ setView }: { setView?: (view: View) => void }) {
 
   useEffect(() => {
     fetchDocs();
-  }, [activeProject?.id]);
+  }, [fetchDocs]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -769,8 +768,9 @@ function Documents({ setView }: { setView?: (view: View) => void }) {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleInspectDoc(doc.id)}
+                    disabled={inspectingDoc}
                     title="Inspect chunks"
-                    className="text-zinc-400 hover:text-black transition"
+                    className="text-zinc-400 hover:text-black disabled:opacity-40 transition"
                   >
                     <Eye size={15} />
                   </button>
@@ -1591,7 +1591,7 @@ function Settings({ setView }: { setView?: (view: View) => void }) {
           <p className="mt-3 font-mono text-xs text-zinc-500">Endpoint: GET /health</p>
           <div className="mt-4 space-y-2 text-xs text-zinc-600">
             <p>
-              Backend URL: <span className="font-mono text-zinc-800">http://localhost:8000</span>
+              Backend URL: <span className="font-mono text-zinc-800">{API_ROOT}</span>
             </p>
             {healthStatus ? (
               <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-xs text-emerald-800">
@@ -1611,8 +1611,8 @@ function Settings({ setView }: { setView?: (view: View) => void }) {
             )}
             <p className="pt-2">
               FastAPI Interactive Docs:{" "}
-              <a href="http://localhost:8000/docs" target="_blank" rel="noreferrer" className="text-zinc-900 underline hover:text-black font-semibold">
-                http://localhost:8000/docs
+              <a href={`${API_ROOT}/docs`} target="_blank" rel="noreferrer" className="text-zinc-900 underline hover:text-black font-semibold">
+                {API_ROOT}/docs
               </a>
             </p>
           </div>
@@ -1727,7 +1727,7 @@ export default function Home() {
             Initializing Vectorly workspace...
           </h2>
           <p className="mt-1 font-mono text-xs text-zinc-500">
-            Connecting to backend API (localhost:8000)
+            Connecting to backend API ({API_ROOT})
           </p>
 
           <div className="mt-6 flex flex-col gap-2.5">

@@ -55,12 +55,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const healthTimeout = setTimeout(() => healthController.abort(), 1000);
 
       try {
-        const res = await fetch("http://localhost:8000/health", {
+        const health = await api.health({
           signal: healthController.signal,
           mode: "cors",
         });
         clearTimeout(healthTimeout);
-        if (res.ok && isMounted) {
+        if (health?.status === "ok" && isMounted) {
           setBackendOnline(true);
         }
       } catch {
