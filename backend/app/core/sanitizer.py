@@ -78,6 +78,36 @@ def validate_file_extension(filename: str) -> str:
     return ext
 
 
+def validate_file_content_signature(filename: str, sample_bytes: bytes) -> None:
+    """Validate file content matches its extension and does not contain dangerous binary headers."""
+    if not sample_bytes:
+        raise ValueError("Uploaded file is empty.")
+
+    ext = Path(filename).suffix.lower()
+
+    if ext == ".pdf":
+        if not sample_bytes.startswith(b"%PDF-"):
+            raise ValueError("Invalid PDF file header. File does not appear to be a valid PDF document.")
+        return
+
+    # Check for known executable/binary signatures disguised under text extensions (.txt, .md, .csv)
+    # MZ = Windows PE / DOS executable
+    # \x7fELF = Linux ELF binary
+    # \xca\xfe\xba\xbe, \xcf\xfa\xed\xfe, \xce\xfa\xed\xfe = Mach-O / Java bytecode
+    if (
+        sample_bytes.startswith(b"MZ")
+        or sample_bytes.startswith(b"\x7fELF")
+        or sample_bytes.startswith(b"\xca\xfe\xba\xbe")
+        or sample_bytes.startswith(b"\xcf\xfa\xed\xfe")
+        or sample_bytes.startswith(b"\xce\xfa\xed\xfe")
+    ):
+        raise ValueError("Executable binary content detected. Upload rejected for security.")
+
+    # Check for null bytes in plain text files (indicates raw binary or shellcode)
+    if b"\x00" in sample_bytes[:4096]:
+        raise ValueError("Binary or null bytes detected in plain text document.")
+
+
 def guard_prompt_query(question: str, max_length: int = 2000) -> str:
     """Detect and neutralize prompt injection attempts and adversarial delimiters in retrieval queries."""
     if not question:

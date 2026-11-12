@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", validation_alias="REDIS_URL")
     llm_provider: str = Field(default="mock", validation_alias="LLM_PROVIDER")
     llm_model: str = Field(default="local-development", validation_alias="LLM_MODEL")
+    openai_api_key: str | None = Field(default=None, validation_alias="OPENAI_API_KEY")
+    openai_api_base: str = Field(default="https://api.openai.com/v1", validation_alias="OPENAI_API_BASE")
+    gemini_api_key: str | None = Field(default=None, validation_alias="GEMINI_API_KEY")
+    ollama_base_url: str = Field(default="http://localhost:11434", validation_alias="OLLAMA_BASE_URL")
     jwt_secret_key: str = Field(
         default="09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7",
         validation_alias="JWT_SECRET_KEY",
@@ -73,6 +77,13 @@ class Settings(BaseSettings):
     def reject_blank_values(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("configuration values cannot be blank")
+        return value
+
+    @field_validator("openai_api_key", "gemini_api_key", mode="before")
+    @classmethod
+    def normalize_empty_to_none(cls, value: str | None) -> str | None:
+        if isinstance(value, str) and not value.strip():
+            return None
         return value
 
 

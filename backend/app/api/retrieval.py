@@ -53,8 +53,20 @@ def query_project_knowledge_base(
         mode=payload.mode,
     )
 
-    llm = get_llm_provider()
-    answer = llm.generate_grounded_answer(question, sources)
+    try:
+        llm = get_llm_provider()
+        answer = llm.generate_grounded_answer(question, sources)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"LLM synthesis error ({settings.llm_provider}): {str(exc)}",
+        )
+
     latency_ms = int((time.perf_counter() - start_time) * 1000)
 
     return QueryResponse(

@@ -12,7 +12,11 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.config.settings import get_settings
-from app.core.sanitizer import sanitize_filename, validate_file_extension
+from app.core.sanitizer import (
+    sanitize_filename,
+    validate_file_content_signature,
+    validate_file_extension,
+)
 from app.db.database import get_db
 from app.models.user import User
 from app.repositories import documents, projects
@@ -55,17 +59,53 @@ async def upload_document(
             detail=str(exc),
         )
 
-    # 3. Size limit verification (Anti-DoS / Anti-Memory-Exhaustion)
-    raw_bytes = await file.read()
+    # 3. Size limit verification via chunked streaming read (Anti-DoS / Anti-Memory-Exhaustion)
     settings = get_settings()
-    if len(raw_bytes) > settings.max_upload_size_bytes:
-        max_mb = settings.max_upload_size_bytes // (1024 * 1024)
+    max_bytes = settings.max_upload_size_bytes
+    max_mb = max(1, max_bytes // (1024 * 1024))
+
+    # Fast rejection if Content-Length header or file.size is known upfront
+    if file.size is not None and file.size > max_bytes:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"Uploaded file exceeds maximum limit of {max_mb} MB.",
         )
 
-    file_type, content = extract_file_info(filename, raw_bytes)
+    chunk_buffer: list[bytes] = []
+    total_bytes = 0
+    read_chunk_size = 64 * 1024  # 64 KB
+
+    while True:
+        chunk = await file.read(read_chunk_size)
+        if not chunk:
+            break
+        total_bytes += len(chunk)
+        if total_bytes > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Uploaded file exceeds maximum limit of {max_mb} MB.",
+            )
+        chunk_buffer.append(chunk)
+
+    raw_bytes = b"".join(chunk_buffer)
+
+    # 4. Content signature and empty payload validation
+    try:
+        validate_file_content_signature(filename, raw_bytes)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    # 5. Extract file content (including real PDF parsing via pypdf)
+    try:
+        file_type, content = extract_file_info(filename, raw_bytes)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
 
     doc = documents.create_document(
         db,
@@ -90,11 +130,25 @@ def create_document(
     _verify_project_ownership(db, project_id=project_id, user_id=current_user.id)
 
     filename = sanitize_filename(payload.name)
+    try:
+        validate_file_extension(filename)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    if not payload.content.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document content cannot be empty.",
+        )
+
     raw_encoded = payload.content.encode("utf-8")
     settings = get_settings()
 
     if len(raw_encoded) > settings.max_upload_size_bytes:
-        max_mb = settings.max_upload_size_bytes // (1024 * 1024)
+        max_mb = max(1, settings.max_upload_size_bytes // (1024 * 1024))
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"Document content exceeds maximum limit of {max_mb} MB.",
