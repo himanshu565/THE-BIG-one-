@@ -32,6 +32,8 @@ export interface DocumentItem {
   updated_at: string;
 }
 
+export type Document = DocumentItem;
+
 export interface DocumentChunk {
   id: number;
   document_id: number;

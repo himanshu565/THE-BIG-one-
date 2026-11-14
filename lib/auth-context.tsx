@@ -40,7 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
 
-  // Check backend liveness and current user with strict 1.2s safety timeout
+  // Check backend liveness and current user with immediate token resolution and safety timeout
   useEffect(() => {
     let isMounted = true;
 
@@ -50,33 +50,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, 1200);
 
     async function init() {
-      // 1. Check health with 1s abort signal
-      const healthController = new AbortController();
-      const healthTimeout = setTimeout(() => healthController.abort(), 1000);
-
-      try {
-        const health = await api.health({
-          signal: healthController.signal,
-          mode: "cors",
-        });
-        clearTimeout(healthTimeout);
-        if (health?.status === "ok" && isMounted) {
-          setBackendOnline(true);
-        }
-      } catch {
-        clearTimeout(healthTimeout);
-        if (isMounted) setBackendOnline(false);
-      }
-
-      // 2. Check token if present
+      // 1. Instant unblock for unauthenticated users
       const token = getToken();
       if (!token) {
         if (isMounted) {
           clearTimeout(safetyTimer);
           setLoading(false);
         }
+        // Probe backend health in the background without blocking the UI
+        try {
+          const health = await api.health({ mode: "cors" });
+          if ((health?.status === "ok" || health?.status === "healthy") && isMounted) {
+            setBackendOnline(true);
+          }
+        } catch {
+          if (isMounted) setBackendOnline(false);
+        }
         return;
       }
+
+      // 2. Concurrently check health and authenticate user session
+      const healthPromise = api
+        .health({ mode: "cors" })
+        .then((h) => {
+          if ((h?.status === "ok" || h?.status === "healthy") && isMounted) {
+            setBackendOnline(true);
+          }
+        })
+        .catch(() => {
+          if (isMounted) setBackendOnline(false);
+        });
 
       try {
         const profile = await Promise.race([
@@ -108,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           clearTimeout(safetyTimer);
           setLoading(false);
         }
+        await healthPromise.catch(() => {});
       }
     }
 

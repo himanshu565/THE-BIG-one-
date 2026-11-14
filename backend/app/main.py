@@ -1,21 +1,27 @@
 from contextlib import asynccontextmanager
+from typing import Any
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.api.auth import router as auth_router
 from app.api.documents import router as documents_router
 from app.api.projects import router as projects_router
 from app.api.retrieval import router as retrieval_router
 from app.config.settings import get_settings
+from app.core.logging import RequestCorrelationMiddleware, configure_logging
 from app.core.rate_limit import RateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
-from app.db.database import Base, engine
+from app.db.database import Base, engine, get_db
 import app.models  # Register all models with Base.metadata
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Initialize structured JSON logging
+    configure_logging()
     # Automatically ensure tables exist on startup (helpful for zero-config SQLite development)
     try:
         Base.metadata.create_all(bind=engine)
@@ -32,13 +38,16 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# 1. Defensive HTTP Security Headers (OWASP Top 10)
+# 1. Request Correlation & Observability Middleware (X-Request-ID)
+app.add_middleware(RequestCorrelationMiddleware)
+
+# 2. Defensive HTTP Security Headers (OWASP Top 10)
 app.add_middleware(SecurityHeadersMiddleware)
 
-# 2. Rate Limiting Middleware (Anti-Brute-Force & Anti-DoS)
+# 3. Rate Limiting Middleware (Anti-Brute-Force & Anti-DoS)
 app.add_middleware(RateLimitMiddleware)
 
-# 3. Hardened CORS Configuration
+# 4. Hardened CORS Configuration
 cors_origins = settings.cors_origins_list
 app.add_middleware(
     CORSMiddleware,
@@ -55,6 +64,22 @@ app.include_router(retrieval_router, prefix="/api/v1")
 
 
 @app.get("/health")
-def health() -> dict[str, str]:
-    """Return a lightweight liveness response."""
-    return {"status": "ok"}
+def health(response: Response, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Return platform and database readiness status."""
+    try:
+        db.execute(text("SELECT 1"))
+        return {
+            "status": "ok",
+            "database": "connected",
+            "environment": settings.app_env,
+            "version": "0.1.0",
+        }
+    except Exception as exc:
+        response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+        return {
+            "status": "unhealthy",
+            "database": "disconnected",
+            "error": str(exc),
+            "environment": settings.app_env,
+            "version": "0.1.0",
+        }

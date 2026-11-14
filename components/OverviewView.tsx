@@ -15,7 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { api, Document as DocumentItem, QueryResponse } from "@/lib/api";
+import { api, DocumentItem, QueryResponse } from "@/lib/api";
 import { SectionHeading } from "./SectionHeading";
 import { ActivityList } from "./ActivityList";
 import { View } from "./types";

@@ -1,11 +1,12 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
 _DEFAULT_DB_URL = f"sqlite:///{(_BACKEND_DIR / 'vectorly.db').as_posix()}"
+DEFAULT_DEV_SECRET = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
 
 
 class Settings(BaseSettings):
@@ -24,7 +25,7 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = Field(default=None, validation_alias="GEMINI_API_KEY")
     ollama_base_url: str = Field(default="http://localhost:11434", validation_alias="OLLAMA_BASE_URL")
     jwt_secret_key: str = Field(
-        default="09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7",
+        default=DEFAULT_DEV_SECRET,
         validation_alias="JWT_SECRET_KEY",
     )
     jwt_algorithm: str = Field(default="HS256", validation_alias="JWT_ALGORITHM")
@@ -36,6 +37,10 @@ class Settings(BaseSettings):
     cors_origins: list[str] | str = Field(
         default=["http://localhost:3000", "http://127.0.0.1:3000", "http://localhost:8000"],
         validation_alias="CORS_ORIGINS",
+    )
+    trusted_proxies: list[str] | str = Field(
+        default=["127.0.0.1", "::1"],
+        validation_alias="TRUSTED_PROXIES",
     )
     rate_limit_enabled: bool = Field(default=True, validation_alias="RATE_LIMIT_ENABLED")
     auth_rate_limit_per_minute: int = Field(
@@ -66,6 +71,13 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
         return list(self.cors_origins)
 
+    @property
+    def trusted_proxies_list(self) -> list[str]:
+        """Return trusted reverse proxy IP addresses as a list of strings."""
+        if isinstance(self.trusted_proxies, str):
+            return [proxy.strip() for proxy in self.trusted_proxies.split(",") if proxy.strip()]
+        return list(self.trusted_proxies)
+
     @field_validator(
         "app_env",
         "llm_provider",
@@ -85,6 +97,21 @@ class Settings(BaseSettings):
         if isinstance(value, str) and not value.strip():
             return None
         return value
+
+    @model_validator(mode="after")
+    def validate_production_security(self) -> "Settings":
+        """Enforce strict secret safety in staging and production environments."""
+        env = self.app_env.strip().lower()
+        if env in ("production", "staging"):
+            if self.jwt_secret_key == DEFAULT_DEV_SECRET:
+                raise ValueError(
+                    "In production or staging, JWT_SECRET_KEY must not use the default development secret key."
+                )
+            if len(self.jwt_secret_key) < 32:
+                raise ValueError(
+                    "In production or staging, JWT_SECRET_KEY must be at least 32 characters long."
+                )
+        return self
 
 
 @lru_cache

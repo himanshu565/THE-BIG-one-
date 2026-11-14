@@ -42,3 +42,36 @@ def test_settings_reject_blank_jwt_secret(monkeypatch: pytest.MonkeyPatch) -> No
 
     with pytest.raises(ValidationError, match="cannot be blank"):
         Settings(_env_file=None)
+
+
+def test_settings_production_rejects_default_dev_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    # Using default dev secret in production must fail validation
+    monkeypatch.setenv("JWT_SECRET_KEY", "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7")
+
+    with pytest.raises(ValidationError, match="must not use the default development secret key"):
+        Settings(_env_file=None)
+
+
+def test_settings_production_rejects_short_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("JWT_SECRET_KEY", "too-short-secret")
+
+    with pytest.raises(ValidationError, match="must be at least 32 characters long"):
+        Settings(_env_file=None)
+
+
+def test_settings_production_accepts_strong_secret(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.setenv("JWT_SECRET_KEY", "super-secure-production-secret-key-32-chars-long")
+
+    settings = Settings(_env_file=None)
+    assert settings.app_env == "production"
+    assert settings.jwt_secret_key == "super-secure-production-secret-key-32-chars-long"
+
+
+def test_settings_trusted_proxies_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("TRUSTED_PROXIES", "10.0.0.1, 10.0.0.2 , 192.168.1.1")
+    settings = Settings(_env_file=None)
+    assert settings.trusted_proxies_list == ["10.0.0.1", "10.0.0.2", "192.168.1.1"]
+

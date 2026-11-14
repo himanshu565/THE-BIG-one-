@@ -79,13 +79,24 @@ PostgreSQL / SQLite database (managed via Alembic migrations)
 ### Pluggable LLM Provider Abstraction
 
 - Abstract `BaseLLMProvider` decouples the API and retrieval pipeline from specific LLM vendors.
-- `MockLLMProvider` synthesizes grounded answers with citations during development and automated tests.
+- Supported providers via `LLM_PROVIDER`:
+  - `MockLLMProvider`: Deterministic grounded answers with citations during development and automated tests.
+  - `OpenAILLMProvider`: Direct OpenAI Chat Completions API integration (`gpt-4o-mini`, `gpt-4o`) via `httpx`.
+  - `GeminiLLMProvider`: Google Gemini REST API integration (`gemini-1.5-flash`) via `httpx`.
+  - `OllamaLLMProvider`: Local Ollama integration (`llama3`, `mistral`) via `httpx`.
+- `get_llm_provider()` factory dynamically configures and validates required API credentials.
+
+### Ingestion & Chunking Hardening
+
+- **Real PDF Ingestion**: Integrated `pypdf` with encrypted document detection and page-by-page text extraction.
+- **Multi-Paragraph Chunk Overlap**: Sentence and whitespace-boundary overlap seeding (`_extract_overlap_seed()`) preserves context continuity across paragraph breaks.
+- **Magic Byte & Content Signature Validation**: Inspects initial byte signatures (`%PDF-`, `MZ`, `ELF`, Mach-O, null bytes) to reject disguised executables or malformed files.
 
 ### Multi-Layered Anti-Hack Security Architecture
 
 - **OWASP Security Headers**: Enforces HSTS, Content-Security-Policy (CSP), `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and `Permissions-Policy` to block clickjacking, MIME confusion, and XSS.
 - **Sliding-Window Rate Limiting**: Throttles requests per client IP across tiered thresholds (20/min for auth, 60/min for queries/uploads, 300/min global) with `HTTP 429` and `Retry-After` to prevent brute-force attacks and DoS.
-- **File Ingestion Firewall**: Limits uploads to 10 MB (`HTTP 413`), enforces strict extension whitelisting (`.txt, .md, .pdf, .csv`), and strips directory traversal markers (`Path.name`).
+- **File Ingestion Firewall**: Limits uploads to 10 MB (`HTTP 413`), fast header rejection, enforces strict extension whitelisting (`.txt, .md, .pdf, .csv`), and strips directory traversal markers (`Path.name`).
 - **Prompt Injection & Adversarial Guard**: Sanitizes adversarial jailbreak phrases and system prompt overrides (`### System:`, `[INST]`, `Ignore previous instructions`) before retrieval and synthesis.
 - **Hardened CORS Policy**: Scopes cross-origin resource sharing to designated frontend origins with explicit credential checks.
 
@@ -107,6 +118,7 @@ backend/
 │   ├── config/
 │   │   └── settings.py       # Environment-backed application settings
 │   ├── core/
+│   │   ├── logging.py        # Structured JSON logger & X-Request-ID middleware
 │   │   ├── rate_limit.py     # Sliding-window rate limiting middleware
 │   │   ├── sanitizer.py      # Path traversal, XSS, and prompt injection filters
 │   │   ├── security.py       # Password hashing & JWT generation/decoding
@@ -136,6 +148,7 @@ backend/
 │   ├── test_documents_api.py
 │   ├── test_health.py
 │   ├── test_ingestion.py
+│   ├── test_llm.py
 │   ├── test_migrations.py
 │   ├── test_projects_api.py
 │   ├── test_projects_repository.py
@@ -143,6 +156,7 @@ backend/
 │   ├── test_security.py
 │   ├── test_settings.py
 │   └── test_users_repository.py
+├── Dockerfile                # Production multi-stage backend container
 └── requirements.txt
 ```
 
@@ -166,18 +180,21 @@ backend/
 
 ## 6. Recommended next design steps
 
-The next phases should be implemented in this order:
+The roadmap phases status:
 
 1. [COMPLETED] Add authentication and derive the owner from the authenticated principal.
 2. [COMPLETED] Add Alembic migrations and a safe database startup/deployment process.
 3. [COMPLETED] Add documents domain with project foreign key, upload endpoint, and chunking pipeline.
 4. [COMPLETED] Add retrieval/query APIs behind an LLM-provider abstraction (hybrid BM25 + vector search preview).
 5. [COMPLETED] Add frontend integration connecting `app/page.tsx` views to the backend API.
-6. Add evaluation APIs and persisted benchmark results.
-7. Add readiness checks, structured logging, and request correlation IDs.
+6. [COMPLETED] Add readiness health probes (`GET /health` with `SELECT 1` pool verification), structured JSON logging, and request correlation IDs (`X-Request-ID`).
+7. [COMPLETED] Add multi-instance anti-hack protections (trusted proxy IP spoofing defense, production secret safety gating).
+8. [COMPLETED] Containerization (`Dockerfile`, `docker-compose.yml`) and automated CI/CD pipeline (`.github/workflows/ci.yml`).
 
 ## 7. How to run tests
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest backend\tests -v
 ```
+
+All 58 backend tests verify project CRUD, auth, ingestion, LLM providers, migrations, security headers, rate limiting, and readiness probes.

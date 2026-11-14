@@ -4,9 +4,12 @@
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black.svg?style=flat&logo=next.js&logoColor=white)](https://nextjs.org/)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg?style=flat&logo=python&logoColor=white)](https://www.python.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Docker](https://img.shields.io/badge/Docker-Multi--Stage-2496ED.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
+[![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF.svg?style=flat&logo=github-actions&logoColor=white)](https://github.com/)
+[![Tests](https://img.shields.io/badge/Tests-58_Passed-success.svg)](https://pytest.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-**Vectorly** is a production-grade, full-stack AI infrastructure platform designed for **reliable, citation-backed knowledge retrieval (RAG)**. It pairs a high-performance **FastAPI** backend with an intuitive, responsive **Next.js 14** workspace.
+**Vectorly** is a production-grade, full-stack AI infrastructure platform designed for **reliable, citation-backed knowledge retrieval (RAG)**. It pairs a high-performance **FastAPI** backend with an intuitive, modular **Next.js 14** workspace.
 
 > 📚 **Deep Dive Guide**: Want to understand every architectural decision, why we built it this way, and how features work in the background? Read our in-depth pedagogical guide: **[`TEACH_ME.md`](./TEACH_ME.md)**.
 
@@ -17,12 +20,15 @@
 - 🔐 **Multi-Tenant JWT Authentication**: Secure bcrypt password hashing and token-scoped project authorization preventing cross-tenant data leakage.
 - 📁 **Isolated Project Workspaces**: Organize documentation into distinct workspaces with independent document indices.
 - ⚡ **Hybrid RAG Retrieval Engine**: Combines **Okapi BM25 lexical search** and **Semantic Vector similarity** fused via **Reciprocal Rank Fusion (RRF)** ($k=60$) to eliminate keyword blindness and capture conceptual context.
-- 🧠 **Grounded Answer Synthesis**: Pluggable LLM interface producing grounded answers with verifiable source document citations and chunk indices.
-- 📄 **Multi-Format Ingestion**: Sliding-window chunker supporting `.md`, `.txt`, `.csv`, and file uploads with sentence-boundary preservation.
+- 🧠 **Pluggable LLM Synthesis Layer**: Provider interface supporting **Mock**, **OpenAI**, **Google Gemini**, and **Ollama** local models producing grounded answers with verifiable source document citations and chunk indices.
+- 📄 **Hardened Multi-Format Ingestion**: Sliding-window chunker supporting `.md`, `.txt`, `.csv`, and `.pdf` (via `pypdf`) with sentence-boundary overlap preservation, magic byte inspection (`validate_file_content_signature`), and encrypted PDF detection.
 - 🚀 **Zero-Config Local Development**: Pre-configured file-based SQLite database with automatic table initialization on launch—zero database servers required to get started. Seamlessly toggle to PostgreSQL in `.env`.
-- 🛡️ **Enterprise Anti-Hack Security Shield**: OWASP security headers (HSTS, strict CSP, X-Frame-Options: DENY, X-Content-Type-Options: nosniff), tiered sliding-window rate limiting per IP (20/min Auth, 60/min Queries, 300/min Global), path-traversal sanitization, 10MB upload cap, strict extension whitelisting, and adversarial prompt injection filtering.
-- 📱 **Fully Responsive Minimalist UI**: High-contrast monochrome interface with global Command Palette (`⌘ K` / `Ctrl+K`), desktop sidebar, mobile navigation strip, and interactive modal chunk inspectors.
-- 🧪 **Comprehensive Automated Verification**: 42 backend pytest tests (including 11 dedicated security tests) and a 37-button / 34-interaction automated frontend test suite.
+- 🛡️ **Enterprise Anti-Hack Security Shield**: OWASP security headers (HSTS, strict CSP, X-Frame-Options: DENY, X-Content-Type-Options: nosniff), tiered sliding-window rate limiting per IP (20/min Auth, 60/min Queries, 300/min Global), reverse proxy IP spoofing defense (`TRUSTED_PROXIES`), path-traversal sanitization, 10MB upload cap, strict extension whitelisting, and adversarial prompt injection filtering.
+- 🩺 **Active Database Readiness Probing**: `GET /health` executes a `SELECT 1` query against the connection pool, returning `HTTP 503 Service Unavailable` if the database is disconnected.
+- 📊 **Structured JSON Logging & Observability**: Correlation middleware injecting and propagating `X-Request-ID` with structured single-line JSON log events.
+- 🐳 **Production Containerization & CI/CD**: Hardened multi-stage Dockerfiles (`backend/Dockerfile`, `Dockerfile`), `docker-compose.yml` (Postgres 16, Redis 7, Backend, Frontend), and automated GitHub Actions CI pipeline.
+- 📱 **Fully Modular Minimalist UI**: High-contrast monochrome interface with global Command Palette (`⌘ K` / `Ctrl+K`), desktop sidebar, mobile navigation, live latency benchmarks, real-time audit activity feed, and modal chunk inspectors.
+- 🧪 **Comprehensive Automated Verification**: 58 backend pytest tests (including 12 dedicated security tests), a 37-button / 34-interaction automated frontend test suite, and 0 ESLint warnings/errors.
 
 ---
 
@@ -35,21 +41,26 @@
         ▼
 Next.js 14 Frontend (http://localhost:3000)
   ├─ AuthScreen: Sign in, Register, and 1-Click Instant Demo Login
-  ├─ Overview: Workspace KPIs, Quick Ask, and Project Context
+  ├─ Overview: Live workspace KPIs, Quick Ask, and Project Context
   ├─ Ask your data: Interactive RAG with Hybrid / BM25 / Semantic modes
-  ├─ Documents: File upload, chunk inspection, and live text indexing
-  └─ Projects: Workspace management and activation
+  ├─ Documents: File upload, chunk inspection modal, and live text indexing
+  ├─ Projects: Workspace management, edit modal, and activation
+  ├─ Evaluations: Live latency & chunk coverage benchmark runner
+  ├─ Activity: Filterable audit log of retrieval & security events
+  └─ Settings: Real-time API health probe with latency counter
         │
-        │ CORS-enabled API
+        │ CORS-enabled API + X-Request-ID
         ▼
 FastAPI Backend (http://localhost:8000/api/v1)
+  ├─ Middleware: RequestCorrelation (X-Request-ID), SecurityHeaders, RateLimit, CORS
   ├─ /auth: Register, login, and profile verification (JWT + bcrypt)
   ├─ /projects: Authenticated workspace CRUD scoped to current_user.id
-  ├─ /documents: Multi-format text ingestion & sliding-window chunking
-  └─ /query: Hybrid retrieval (BM25 + Semantic Cosine + RRF) + Grounded LLM synthesis
+  ├─ /documents: Multi-format text & PDF ingestion, magic byte checks, chunking
+  ├─ /query: Hybrid retrieval (BM25 + Semantic Cosine + RRF) + Grounded LLM synthesis
+  └─ /health: Live database readiness probe (SELECT 1)
         │
         ▼
-Database (SQLite vectorly.db OR PostgreSQL 5432)
+Database (SQLite vectorly.db OR PostgreSQL 16)
   └── Managed via SQLAlchemy 2.0 ORM & Alembic migrations
 ```
 
@@ -63,7 +74,9 @@ Database (SQLite vectorly.db OR PostgreSQL 5432)
 
 ---
 
-### Step 1: Start the FastAPI Backend
+### Option A: Standard Local Development
+
+#### Step 1: Start the FastAPI Backend
 
 Open a terminal in the project directory:
 
@@ -84,11 +97,9 @@ uvicorn app.main:app --reload --port 8000
 
 - **API Base URL**: `http://localhost:8000/api/v1`
 - **Interactive OpenAPI Docs**: `http://localhost:8000/docs`
-- **Health Check**: `http://localhost:8000/health`
+- **Health & Readiness Check**: `http://localhost:8000/health`
 
----
-
-### Step 2: Start the Next.js Frontend
+#### Step 2: Start the Next.js Frontend
 
 Open a second terminal in the project root:
 
@@ -103,6 +114,21 @@ npm run dev
 Open **`http://localhost:3000`** in your browser.
 
 > ⚡ **Tip**: Click the **"⚡ 1-Click Instant Demo Login"** button on the sign-in screen to instantly authenticate as `demo@vectorly.ai` with a pre-seeded project workspace and sample documents.
+
+---
+
+### Option B: Full Docker Stack (One Command)
+
+To run the complete stack (PostgreSQL 16, Redis 7, FastAPI Backend, Next.js Frontend) in production containers:
+
+```bash
+docker compose up --build
+```
+
+- Frontend: `http://localhost:3000`
+- Backend API: `http://localhost:8000`
+- PostgreSQL: `localhost:5432`
+- Redis: `localhost:6379`
 
 ---
 
@@ -131,6 +157,9 @@ To switch to PostgreSQL:
 
 All protected endpoints require `Authorization: Bearer <token>`.
 
+### Platform Health & Readiness
+- `GET /health` — Active liveness & database readiness check (`SELECT 1`). Returns HTTP 200 when healthy, HTTP 503 when the database is unreachable.
+
 ### Authentication
 - `POST /api/v1/auth/register` — Create a new user account.
 - `POST /api/v1/auth/login` — Authenticate and receive JWT access token.
@@ -147,6 +176,7 @@ All protected endpoints require `Authorization: Bearer <token>`.
 - `GET /api/v1/projects/{project_id}/documents` — List all documents in a project.
 - `POST /api/v1/projects/{project_id}/documents` — Index a text or markdown document directly.
 - `POST /api/v1/projects/{project_id}/documents/upload` — Upload and chunk a file (`.txt`, `.md`, `.csv`, `.pdf`).
+- `GET /api/v1/projects/{project_id}/documents/{document_id}` — Inspect document metadata and all indexed chunks.
 - `DELETE /api/v1/projects/{project_id}/documents/{document_id}` — Delete a document and its indexed chunks.
 
 ### Retrieval & RAG
@@ -158,21 +188,28 @@ All protected endpoints require `Authorization: Bearer <token>`.
 ## Automated Testing
 
 ### 1. Frontend UI Verification Suite
-Verifies all 29 UI buttons, their bindings, click handlers, and 27 end-to-end user state interactions:
+Verifies all 37 UI buttons, click bindings, and 34 simulated user interaction flows:
 
 ```bash
 npm test
 ```
 
-### 2. Backend Pytest Suite
-Runs 31 automated tests covering auth, security, repositories, chunking, migrations, and the hybrid retrieval engine:
+### 2. Frontend Linting
+Runs strict ESLint analysis ensuring clean code formatting:
+
+```bash
+npm run lint
+```
+
+### 3. Backend Pytest Suite
+Runs 58 automated tests covering auth, security, repositories, chunking, migrations, LLM providers, and the hybrid retrieval engine:
 
 ```bash
 cd backend
 pytest -v
 ```
 
-### 3. Production Build Validation
+### 4. Production Build Validation
 Compiles Next.js static pages and verifies TypeScript types:
 
 ```bash
@@ -196,5 +233,5 @@ npm run build
 
 ## Documentation Links
 
-- **[`TEACH_ME.md`](./TEACH_ME.md)** — Comprehensive architecture, design choices, algorithmic formulations, and background flow execution.
-- **[`backend/LEARNER_GUIDE.md`](./backend/LEARNER_GUIDE.md)** — Backend-specific learner guide and roadmap.
+- **[`TEACH_ME.md`](./TEACH_ME.md)** — Comprehensive architecture, design choices, algorithmic formulations, background flow execution, anti-hack security layers, and DevOps pipelines.
+- **[`backend/LEARNER_GUIDE.md`](./backend/LEARNER_GUIDE.md)** — Backend-specific learner guide, database schema, and roadmap.

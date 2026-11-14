@@ -209,3 +209,27 @@ def test_upload_rejects_oversized_file(client: TestClient, monkeypatch) -> None:
     res = client.post(f"/api/v1/projects/{proj['id']}/documents/upload", headers=headers, files=files)
     assert res.status_code == 413
     assert "exceeds maximum limit" in res.json().get("detail", "")
+
+
+def test_ip_spoofing_defense_with_trusted_proxies() -> None:
+    """Verify that X-Forwarded-For is only parsed from whitelisted reverse proxies."""
+    from unittest.mock import MagicMock
+    from app.core.rate_limit import get_client_ip
+
+    # Case 1: Untrusted client attempts to spoof IP
+    untrusted_req = MagicMock()
+    untrusted_req.client.host = "198.51.100.55"  # Direct external peer
+    untrusted_req.headers.get.return_value = "1.2.3.4"  # Spoofed IP in X-Forwarded-For
+
+    resolved_ip = get_client_ip(untrusted_req, trusted_proxies=["127.0.0.1", "10.0.0.1"])
+    # Must reject the spoofed header and use actual peer IP
+    assert resolved_ip == "198.51.100.55"
+
+    # Case 2: Trusted reverse proxy forwards original client IP
+    trusted_proxy_req = MagicMock()
+    trusted_proxy_req.client.host = "127.0.0.1"
+    trusted_proxy_req.headers.get.return_value = "203.0.113.195, 10.0.0.1"
+
+    resolved_trusted_ip = get_client_ip(trusted_proxy_req, trusted_proxies=["127.0.0.1", "10.0.0.1"])
+    assert resolved_trusted_ip == "203.0.113.195"
+

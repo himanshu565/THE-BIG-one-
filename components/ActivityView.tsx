@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Filter, Layers, Zap, FileText, ShieldCheck, CheckCircle2 } from "lucide-react";
+import { Filter, CheckCircle2 } from "lucide-react";
 import { SectionHeading } from "./SectionHeading";
 import { ActivityList } from "./ActivityList";
 import { ActivityItem, View } from "./types";

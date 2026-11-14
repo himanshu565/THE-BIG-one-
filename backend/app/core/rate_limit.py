@@ -60,14 +60,25 @@ def reset_rate_limiters() -> None:
     _global_limiter.reset()
 
 
-def get_client_ip(request: Request) -> str:
-    """Extract client IP address, respecting X-Forwarded-For if available."""
+def get_client_ip(request: Request, trusted_proxies: list[str] | None = None) -> str:
+    """Extract client IP address, only respecting X-Forwarded-For if peer is a trusted proxy."""
+    if trusted_proxies is None:
+        try:
+            trusted_proxies = get_settings().trusted_proxies_list
+        except Exception:
+            trusted_proxies = ["127.0.0.1", "::1"]
+
+    peer_host = request.client.host if request.client else "127.0.0.1"
     forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "127.0.0.1"
+
+    # Anti-IP-spoofing: Only parse X-Forwarded-For if direct peer is trusted
+    if forwarded and (peer_host in trusted_proxies or "*" in trusted_proxies):
+        # Extract the originating client IP (first entry in list)
+        origin_ip = forwarded.split(",")[0].strip()
+        if origin_ip:
+            return origin_ip
+
+    return peer_host
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

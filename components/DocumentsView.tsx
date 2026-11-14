@@ -14,7 +14,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { api, Document as DocumentItem, DocumentDetail } from "@/lib/api";
+import { api, DocumentItem, DocumentDetail } from "@/lib/api";
 import { SectionHeading } from "./SectionHeading";
 import { View } from "./types";
 
