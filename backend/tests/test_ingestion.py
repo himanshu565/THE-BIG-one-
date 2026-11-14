@@ -47,6 +47,39 @@ def test_extract_file_info() -> None:
     assert "Microservices" in text
 
 
+def test_chunk_text_paragraph_overlap() -> None:
+    text = (
+        "This is the first paragraph detailing the system architecture.\n\n"
+        "This is the second paragraph discussing the storage layer."
+    )
+    chunks = chunk_text(text, chunk_size=100, chunk_overlap=30)
+    assert len(chunks) == 2
+    # Ensure second chunk contains trailing content from first chunk as overlap
+    assert "architecture." in chunks[1]
+    assert "storage layer" in chunks[1]
+
+
+def test_extract_pdf_file_info() -> None:
+    import io
+    import pypdf
+
+    writer = pypdf.PdfWriter()
+    page = writer.add_blank_page(width=200, height=200)
+    # We can write a stream or text
+    buf = io.BytesIO()
+    writer.write(buf)
+    pdf_bytes = buf.getvalue()
+
+    ext, text = extract_file_info("manual.pdf", pdf_bytes)
+    assert ext == "pdf"
+    assert "PDF Document" in text or "Page 1" in text
+
+
+def test_extract_corrupted_pdf_raises() -> None:
+    with pytest.raises(ValueError, match="Failed to parse PDF"):
+        extract_file_info("corrupted.pdf", b"%PDF-corrupted-binary-garbage")
+
+
 def test_ingest_document(db_session: Session) -> None:
     user = User(email="author@vectorly.ai", hashed_password="pw")
     db_session.add(user)

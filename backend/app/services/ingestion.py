@@ -75,9 +75,18 @@ def chunk_text(text: str, chunk_size: int = 500, chunk_overlap: int = 50) -> lis
                 current_chunk = []
                 current_len = 0
             else:
-                if overlap_seed and (len(overlap_seed) + p_len + 2 <= chunk_size):
-                    current_chunk = [overlap_seed, paragraph]
-                    current_len = len(overlap_seed) + p_len + 2
+                seed_to_use = ""
+                if overlap_seed:
+                    if len(overlap_seed) + p_len + 2 <= chunk_size:
+                        seed_to_use = overlap_seed
+                    else:
+                        budget = chunk_size - p_len - 2
+                        if budget >= 10:
+                            seed_to_use = _extract_overlap_seed(joined, budget)
+
+                if seed_to_use:
+                    current_chunk = [seed_to_use, paragraph]
+                    current_len = len(seed_to_use) + p_len + 2
                 else:
                     current_chunk = [paragraph]
                     current_len = p_len

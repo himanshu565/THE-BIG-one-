@@ -59,7 +59,7 @@ async def upload_document(
             detail=str(exc),
         )
 
-    # 3. Size limit verification via chunked streaming read (Anti-DoS / Anti-Memory-Exhaustion)
+    # 3. Size limit verification (Anti-DoS / Anti-Memory-Exhaustion)
     settings = get_settings()
     max_bytes = settings.max_upload_size_bytes
     max_mb = max(1, max_bytes // (1024 * 1024))
@@ -71,23 +71,12 @@ async def upload_document(
             detail=f"Uploaded file exceeds maximum limit of {max_mb} MB.",
         )
 
-    chunk_buffer: list[bytes] = []
-    total_bytes = 0
-    read_chunk_size = 64 * 1024  # 64 KB
-
-    while True:
-        chunk = await file.read(read_chunk_size)
-        if not chunk:
-            break
-        total_bytes += len(chunk)
-        if total_bytes > max_bytes:
-            raise HTTPException(
-                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                detail=f"Uploaded file exceeds maximum limit of {max_mb} MB.",
-            )
-        chunk_buffer.append(chunk)
-
-    raw_bytes = b"".join(chunk_buffer)
+    raw_bytes = await file.read()
+    if len(raw_bytes) > max_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Uploaded file exceeds maximum limit of {max_mb} MB.",
+        )
 
     # 4. Content signature and empty payload validation
     try:

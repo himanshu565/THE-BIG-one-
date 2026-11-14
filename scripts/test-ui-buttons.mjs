@@ -7,7 +7,15 @@ console.log("  VECTORLY UI BUTTONS VERIFICATION TEST SUITE   ");
 console.log("=================================================\n");
 
 const pagePath = path.resolve("app/page.tsx");
-const pageCode = fs.readFileSync(pagePath, "utf-8");
+let pageCode = fs.readFileSync(pagePath, "utf-8");
+const componentsDir = path.resolve("components");
+if (fs.existsSync(componentsDir)) {
+  for (const file of fs.readdirSync(componentsDir)) {
+    if (file.endsWith(".tsx") || file.endsWith(".ts")) {
+      pageCode += "\n" + fs.readFileSync(path.join(componentsDir, file), "utf-8");
+    }
+  }
+}
 
 const testedButtons = [];
 let passedCount = 0;

@@ -146,3 +146,27 @@ def test_document_user_isolation(client: TestClient) -> None:
     files = {"file": ("hacked.txt", io.BytesIO(b"malicious"), "text/plain")}
     assert client.post(f"/api/v1/projects/{project_id}/documents/upload", files=files, headers=headers_b).status_code == 404
 
+
+def test_upload_validates_magic_signature_and_content(client: TestClient) -> None:
+    headers = _create_user_and_token(client, "validator@vectorly.ai")
+    proj_res = client.post("/api/v1/projects", json={"name": "Signature Proj"}, headers=headers)
+    project_id = proj_res.json()["id"]
+
+    # 1. Empty file rejected with 400
+    empty_file = {"file": ("empty.txt", io.BytesIO(b""), "text/plain")}
+    res = client.post(f"/api/v1/projects/{project_id}/documents/upload", files=empty_file, headers=headers)
+    assert res.status_code == 400
+    assert "empty" in res.json()["detail"].lower()
+
+    # 2. Executable disguised as .txt rejected with 400
+    fake_exe = {"file": ("malware.txt", io.BytesIO(b"MZ\x90\x00\x03\x00\x00\x00"), "text/plain")}
+    res = client.post(f"/api/v1/projects/{project_id}/documents/upload", files=fake_exe, headers=headers)
+    assert res.status_code == 400
+    assert "binary" in res.json()["detail"].lower() or "executable" in res.json()["detail"].lower()
+
+    # 3. Invalid PDF header rejected with 400
+    fake_pdf = {"file": ("fake.pdf", io.BytesIO(b"This is not a PDF file"), "application/pdf")}
+    res = client.post(f"/api/v1/projects/{project_id}/documents/upload", files=fake_pdf, headers=headers)
+    assert res.status_code == 400
+    assert "invalid pdf" in res.json()["detail"].lower()
+
