@@ -94,11 +94,14 @@ export default function Home() {
   const userInitials = user.full_name
     ? user.full_name
         .split(" ")
+        .filter(Boolean)
         .map((n) => n[0])
         .join("")
         .toUpperCase()
         .slice(0, 2)
-    : "HB";
+    : user.email
+    ? user.email.slice(0, 2).toUpperCase()
+    : "US";
 
   const viewContent: Record<View, React.ReactNode> = {
     "Overview": <OverviewView setView={setActiveView} />,
@@ -182,8 +185,8 @@ export default function Home() {
               {userInitials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-bold text-zinc-900">{user.full_name || "Himanshu Bisht"}</p>
-              <p className="truncate font-mono text-[10px] text-zinc-500">{user.email || "Admin"}</p>
+              <p className="truncate text-xs font-bold text-zinc-900">{user.full_name || user.email.split("@")[0] || "User"}</p>
+              <p className="truncate font-mono text-[10px] text-zinc-500">{user.email || "Active User"}</p>
             </div>
             <button onClick={logout} title="Sign out" className="text-zinc-400 hover:text-black transition">
               <LogOut size={16} />

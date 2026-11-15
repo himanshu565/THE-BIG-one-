@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -30,11 +30,13 @@ def create_project(
 
 @router.get("", response_model=list[ProjectResponse])
 def list_projects(
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[ProjectResponse]:
     """List projects owned by the authenticated user."""
-    return projects.list_projects(db, owner_id=current_user.id)
+    return projects.list_projects(db, owner_id=current_user.id, limit=limit, offset=offset)
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)

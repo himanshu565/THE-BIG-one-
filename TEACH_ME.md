@@ -20,7 +20,7 @@
    - [Decision 8: Full 16-Endpoint API-to-UI Mapping & Ingestion Transparency](#decision-8-full-16-endpoint-api-to-ui-mapping--ingestion-transparency)
    - [Decision 9: Precision Minimalist Monochrome UI & Command Palette](#decision-9-precision-minimalist-monochrome-ui--command-palette)
    - [Decision 10: Multi-Layered Anti-Hack & Enterprise Security Shield](#decision-10-multi-layered-anti-hack--enterprise-security-shield)
-4. [Complete 16-Endpoint API-to-UI Mapping Matrix](#4-complete-16-endpoint-api-to-ui-mapping-matrix)
+4. [Complete 18-Endpoint API-to-UI Mapping Matrix](#4-complete-18-endpoint-api-to-ui-mapping-matrix)
 5. [How Features Run in the Background (Step-by-Step Trajectories)](#5-how-features-run-in-the-background-step-by-step-trajectories)
    - [Flow A: User Authentication & Session Scoping](#flow-a-user-authentication--session-scoping)
    - [Flow B: Document Upload & Chunk Ingestion](#flow-b-document-upload--chunk-ingestion)
@@ -274,28 +274,30 @@ Vectorly solves this by combining:
 
 ---
 
-## 4. Complete 16-Endpoint API-to-UI Mapping Matrix
+## 4. Complete 18-Endpoint API-to-UI Mapping Matrix
 
 Every backend route is 100% wired to frontend client functions, UI views, and interactive controls:
 
 | # | HTTP Method & Path | Backend Handler | Frontend Client Function | UI View / Component | UI Trigger / Button | Interactive Behavior |
 |---|---|---|---|---|---|---|
-| **1** | `GET /health` | `backend/app/main.py:47` | `api.health()` | **Top Header & Settings Tab** | • Header `API Online` pulse pill<br>• `Test API Health` button | Checks backend connectivity, displays latency in milliseconds, and informs server readiness. |
-| **2** | `POST /api/v1/auth/register` | `backend/app/api/auth.py:14` | `api.auth.register` | **AuthScreen** | `Create Account` submit button | Registers account with email, password, and full name; auto-logs in upon creation. |
-| **3** | `POST /api/v1/auth/login` | `backend/app/api/auth.py:36` | `api.auth.login` | **AuthScreen** | • `Sign In to Workspace` button<br>• `⚡ 1-Click Instant Demo Login` | Verifies credentials, stores JWT in localStorage (`vectorly_token`), and loads workspace. |
-| **4** | `GET /api/v1/auth/me` | `backend/app/api/auth.py:58` | `api.auth.getMe` | **Sidebar, Header & Settings** | • User initials avatar button<br>• Settings `Authenticated Account` card | Validates active session on reload, populates user profile, full name, and email. |
-| **5** | `POST /api/v1/projects` | `backend/app/api/projects.py:13` | `api.projects.create` | **Projects Tab** | `+ Create project` action button $\to$ `Save Project` button | Opens workspace modal, creates project, refreshes list, and sets it as active. |
-| **6** | `GET /api/v1/projects` | `backend/app/api/projects.py:28` | `api.projects.list` | **Projects & Overview Tabs** | • Project switcher dropdown<br>• Quick Jump (`⌘ K`) modal | Fetches all projects owned by the user and renders project workspace cards. |
-| **7** | `GET /api/v1/projects/{id}` | `backend/app/api/projects.py:37` | `api.projects.get` | **Projects Tab** | `Edit project` (Pencil icon) button | Retrieves fresh project details prior to opening the workspace editing modal. |
-| **8** | `PATCH /api/v1/projects/{id}` | `backend/app/api/projects.py:50` | `api.projects.update` | **Projects Tab** | `Save Changes` submit button in Edit Modal | Updates project name and description, synchronizing the workspace in real time. |
-| **9** | `DELETE /api/v1/projects/{id}` | `backend/app/api/projects.py:69` | `api.projects.delete` | **Projects Tab** | Project card Trash icon button | Deletes project and its documents, then refreshes the workspace list. |
-| **10** | `POST /api/v1/projects/{id}/documents/upload` | `backend/app/api/documents.py:32` | `api.documents.upload` | **Documents Tab** | `Click to browse file` dropzone | Uploads PDF, Markdown, TXT, or CSV, auto-chunks and indexes them into the vector store. |
-| **11** | `POST /api/v1/projects/{id}/documents` | `backend/app/api/documents.py:58` | `api.documents.create` | **Documents Tab** | `Save & Index` button | Submits direct raw text/markdown documentation and indexes its chunks. |
-| **12** | `GET /api/v1/projects/{id}/documents` | `backend/app/api/documents.py:81` | `api.documents.list` | **Documents Tab & Overview** | • Status filter dropdown (`All files`, `Ready`, `Processing`)<br>• Search input | Displays document name, file type, file size, chunk count, and processing status. |
-| **13** | `GET /api/v1/projects/{id}/documents/{doc_id}` | `backend/app/api/documents.py:93` | `api.documents.get` | **Documents Tab** | • Document title click<br>• `Inspect chunks` (Eye icon) button | Opens the **Document & Chunks Inspector Modal**, showing every chunk with token counts and raw content. |
-| **14** | `DELETE /api/v1/projects/{id}/documents/{doc_id}` | `backend/app/api/documents.py:122` | `api.documents.delete` | **Documents Tab** | Document row Trash icon button | Deletes document and cleans up all associated chunk embeddings. |
-| **15** | `POST /api/v1/projects/{id}/query` | `backend/app/api/retrieval.py:27` | `api.retrieval.query` | **Ask your data & Overview** | • `Generate answer` button<br>• `Run retrieval` button | Executes hybrid RAG search (BM25 + Dense RRF fusion) and synthesizes a grounded answer with citations. |
-| **16** | `POST /api/v1/projects/{id}/search` | `backend/app/api/retrieval.py:62` | `api.retrieval.search` | **Ask your data Tab** | `Search Chunks Only` action button | Retrieves top-K source chunks directly with similarity scores without waiting for LLM synthesis. |
+| **1** | `GET /health` | `backend/app/main.py:68` | `api.health()` | **Top Header & Settings Tab** | • Header `API Online` pulse pill<br>• `Test API Health` button | Checks backend connectivity, displays latency in milliseconds, and informs server readiness. |
+| **2** | `POST /api/v1/auth/register` | `backend/app/api/auth.py:15` | `api.auth.register` | **AuthScreen** | `Create Account` submit button | Registers account with email, password, and full name; auto-logs in upon creation. |
+| **3** | `POST /api/v1/auth/login` | `backend/app/api/auth.py:38` | `api.auth.login` | **AuthScreen** | • `Sign In to Workspace` button<br>• `⚡ 1-Click Instant Demo Login` | Verifies credentials, stores JWT in localStorage (`vectorly_token`), and loads workspace. |
+| **4** | `GET /api/v1/auth/me` | `backend/app/api/auth.py:60` | `api.auth.getMe` | **Sidebar, Header & Settings** | • User initials avatar button<br>• Settings `Authenticated Account` card | Validates active session on reload, populates user profile, full name, and email. |
+| **5** | `POST /api/v1/projects` | `backend/app/api/projects.py:17` | `api.projects.create` | **Projects Tab** | `+ Create project` action button $\to$ `Save Project` button | Opens workspace modal, creates project, refreshes list, and sets it as active. |
+| **6** | `GET /api/v1/projects?limit=100&offset=0` | `backend/app/api/projects.py:33` | `api.projects.list` | **Projects & Overview Tabs** | • Project switcher dropdown<br>• Quick Jump (`⌘ K`) modal | Fetches all projects owned by the user and renders project workspace cards with pagination. |
+| **7** | `GET /api/v1/projects/{id}` | `backend/app/api/projects.py:46` | `api.projects.get` | **Projects Tab** | `Edit project` (Pencil icon) button | Retrieves fresh project details prior to opening the workspace editing modal. |
+| **8** | `PATCH /api/v1/projects/{id}` | `backend/app/api/projects.py:60` | `api.projects.update` | **Projects Tab** | `Save Changes` submit button in Edit Modal | Updates project name and description, synchronizing the workspace in real time. |
+| **9** | `DELETE /api/v1/projects/{id}` | `backend/app/api/projects.py:80` | `api.projects.delete` | **Projects Tab** | Project card Trash icon button | Deletes project and its documents, then refreshes the workspace list. |
+| **10** | `POST /api/v1/projects/{id}/documents/upload` | `backend/app/api/documents.py:38` | `api.documents.upload` | **Documents Tab** | `Click to browse file` dropzone | Uploads PDF, Markdown, TXT, or CSV, enforces 64KB streaming memory cap, auto-chunks and indexes chunks. |
+| **11** | `POST /api/v1/projects/{id}/documents` | `backend/app/api/documents.py:108` | `api.documents.create` | **Documents Tab** | `Save & Index` button | Submits direct raw text/markdown documentation and indexes its chunks. |
+| **12** | `GET /api/v1/projects/{id}/documents?limit=100&offset=0` | `backend/app/api/documents.py:133` | `api.documents.list` | **Documents Tab & Overview** | • Status filter dropdown (`All files`, `Ready`, `Processing`)<br>• Search input | Displays document name, file type, file size, chunk count, and processing status with pagination. |
+| **13** | `GET /api/v1/projects/{id}/documents/{doc_id}` | `backend/app/api/documents.py:158` | `api.documents.get` | **Documents Tab** | • Document title click<br>• `Inspect chunks` (Eye icon) button | Opens the **Document & Chunks Inspector Modal**, showing every chunk with token counts and raw content. |
+| **14** | `DELETE /api/v1/projects/{id}/documents/{doc_id}` | `backend/app/api/documents.py:188` | `api.documents.delete` | **Documents Tab** | Document row Trash icon button | Deletes document and cleans up all associated chunk embeddings. |
+| **15** | `POST /api/v1/projects/{id}/query` | `backend/app/api/retrieval.py:30` | `api.retrieval.query` | **Ask your data & Overview** | • `Generate answer` button<br>• `Run retrieval` button | Executes hybrid RAG search (BM25 + Dense RRF fusion) and synthesizes a grounded answer with citations. |
+| **16** | `POST /api/v1/projects/{id}/search` | `backend/app/api/retrieval.py:65` | `api.retrieval.search` | **Ask your data Tab** | `Search Chunks Only` action button | Retrieves top-K source chunks directly with similarity scores without waiting for LLM synthesis. |
+| **17** | `POST /api/v1/projects/{id}/evaluations` | `backend/app/api/evaluations.py:27` | `api.evaluations.create` | **Evaluations Tab** | `Run live benchmark` button | Persists automated benchmark run (latency, mode, chunks found, status) to the relational database. |
+| **18** | `GET /api/v1/projects/{id}/evaluations?limit=50&offset=0` | `backend/app/api/evaluations.py:53` | `api.evaluations.list` | **Evaluations Tab** | Auto-loads on tab mount & active project change | Displays historical latency and retrieval coverage telemetry runs with pagination. |
 
 ---
 
@@ -501,12 +503,12 @@ Implemented in `backend/app/main.py`:
 
 ---
 
-### Layer 4: Ingestion Firewall (Anti-Traversal & Magic Signature Verification)
+### Layer 4: Ingestion Firewall (Anti-Traversal, Magic Signature Verification & Streaming Bounds)
 Implemented in `backend/app/core/sanitizer.py` and `backend/app/api/documents.py`:
 - **Sanitization & Traversal**: Cleans file names of directory traversal strings (`../`, `..\`) and null bytes (`\x00`).
 - **Dangerous Extension Blacklist**: Rejects executable extensions (`.exe`, `.sh`, `.bat`, `.php`, `.py`, `.js`, `.html`).
 - **Magic Byte Inspection**: Validates binary headers (`%PDF-` for PDFs, rejects `MZ`, `\x7fELF`, and Mach-O executables disguised as text).
-- **Streaming Upload Cap**: Rejects uploads exceeding 10MB without memory exhaustion.
+- **Chunked Streaming Upload Cap**: Reads incoming files in 64 KB chunks up to the configured limit (`MAX_UPLOAD_SIZE_BYTES = 10MB`). If the accumulated size exceeds the threshold, the upload is aborted immediately with `HTTP 413 Payload Too Large` without buffering the entire payload into RAM, eliminating memory-exhaustion DoS attacks.
 
 ---
 
@@ -595,18 +597,18 @@ Vectorly includes production-ready Docker containers and automated CI/CD workflo
 The database uses SQLAlchemy 2.0 ORM models backed by Alembic migrations:
 
 ```
-┌──────────────────┐       1:N       ┌──────────────────┐
-│      users       ├────────────────►│     projects     │
-│──────────────────│                 │──────────────────│
-│ id (PK)          │                 │ id (PK)          │
-│ email (Unique)   │                 │ owner_id (FK)    │
-│ hashed_password  │                 │ name             │
-│ full_name        │                 │ description      │
-│ created_at       │                 │ created_at       │
-└──────────────────┘                 └────────┬─────────┘
-                                              │ 1:N
-                                              ▼
-┌────────────────────────┐  1:N      ┌──────────────────┐
+┌──────────────────┐       1:N       ┌──────────────────┐       1:N       ┌──────────────────┐
+│      users       ├────────────────►│     projects     ├────────────────►│ evaluation_runs  │
+│──────────────────│                 │──────────────────│                 │──────────────────│
+│ id (PK)          │                 │ id (PK)          │                 │ id (PK)          │
+│ email (Unique)   │                 │ owner_id (FK)    │                 │ project_id (FK)  │
+│ hashed_password  │                 │ name             │                 │ query            │
+│ full_name        │                 │ description      │                 │ latency_ms       │
+│ created_at       │                 │ created_at       │                 │ chunks_found     │
+└──────────────────┘                 └────────┬─────────┘                 │ mode             │
+                                              │ 1:N                       │ status           │
+                                              ▼                           │ created_at       │
+┌────────────────────────┐  1:N      ┌──────────────────┐                 └──────────────────┘
 │    document_chunks     │◄──────────┤    documents     │
 │────────────────────────│           │──────────────────│
 │ id (PK)                │           │ id (PK)          │
@@ -622,6 +624,7 @@ The database uses SQLAlchemy 2.0 ORM models backed by Alembic migrations:
 ### Alembic Migration Versions:
 - `e12d264745ad_create_users_and_projects_tables.py`: Creates `users` and `projects` with owner foreign key.
 - `f5eb10c9080e_create_documents_and_chunks_tables.py`: Creates `documents` and `document_chunks` with cascade delete on document removal.
+- `c8f1e2a3b4c5_create_evaluations_table.py`: Creates `evaluation_runs` table with foreign key reference to `projects.id`.
 
 ---
 
@@ -630,17 +633,19 @@ The database uses SQLAlchemy 2.0 ORM models backed by Alembic migrations:
 Vectorly maintains comprehensive automated test coverage across both backend and frontend:
 
 ### Backend Pytest Suite (`backend/tests/`)
-58 automated tests covering:
+65 automated tests covering:
 - `test_security.py`: OWASP security headers, sliding-window rate limiting (HTTP 429), dangerous file type rejection, file size limits (HTTP 413), path-traversal sanitization, prompt injection filters, and trusted proxy IP spoofing defense.
+- `test_evaluations_api.py`: Automated retrieval evaluations recording, cross-tenant project scoping, validation errors, and limit/offset query pagination.
+- `test_seed.py`: Automated database seeder CLI validation, entity relationship creation, idempotency tests, and database reset wipe/repopulation.
 - `test_health.py`: Database readiness probing (`SELECT 1`), liveness status, and HTTP 503 Service Unavailable handling on database pool disconnection.
 - `test_settings.py`: Local defaults, environment overrides, blank validation, production secret strength enforcement, and trusted proxies parsing.
 - `test_auth_api.py`: Registration, login, bad credentials, expired tokens, duplicate email rejection.
-- `test_projects_api.py`: User-scoped project CRUD, cross-user authorization barriers.
-- `test_documents_api.py`: File upload, text document creation, deletion, multi-chunk verification, magic byte verification, executable rejection.
+- `test_projects_api.py`: User-scoped project CRUD, cross-user authorization barriers, and pagination query params.
+- `test_documents_api.py`: File upload with chunked stream bounds, text document creation, deletion, multi-chunk verification, magic byte verification, executable rejection, and pagination.
 - `test_ingestion.py`: Token estimation, paragraph chunking with sentence overlap, PDF text extraction via pypdf, corrupted PDF rejection.
 - `test_llm.py`: MockLLMProvider, OpenAILLMProvider, GeminiLLMProvider, OllamaLLMProvider, provider factory, prompt formatting.
 - `test_retrieval.py`: BM25 scoring, semantic similarity, RRF rank combination, grounded answer synthesis.
-- `test_migrations.py`: Alembic upgrade/downgrade consistency.
+- `test_migrations.py`: Alembic upgrade/downgrade consistency across all revisions including `evaluation_runs`.
 
 ```bash
 .\.venv\Scripts\python.exe -m pytest backend/tests -v

@@ -66,6 +66,17 @@ export interface QueryResponse {
   latency_ms: number;
 }
 
+export interface EvaluationItem {
+  id: number;
+  project_id: number;
+  query: string;
+  latency_ms: number;
+  chunks_found: number;
+  mode: string;
+  status: string;
+  created_at: string;
+}
+
 const TOKEN_KEY = "vectorly_token";
 
 export function getToken(): string | null {
@@ -220,6 +231,21 @@ export const api = {
       return request<SourceCitation[]>(`/projects/${projectId}/search`, {
         method: "POST",
         body: JSON.stringify({ question, top_k: topK, mode }),
+      });
+    },
+  },
+
+  evaluations: {
+    async list(projectId: number, limit: number = 50, offset: number = 0): Promise<EvaluationItem[]> {
+      return request<EvaluationItem[]>(`/projects/${projectId}/evaluations?limit=${limit}&offset=${offset}`);
+    },
+    async create(
+      projectId: number,
+      data: { query: string; latency_ms: number; chunks_found: number; mode?: string; status?: string }
+    ): Promise<EvaluationItem> {
+      return request<EvaluationItem>(`/projects/${projectId}/evaluations`, {
+        method: "POST",
+        body: JSON.stringify(data),
       });
     },
   },

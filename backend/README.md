@@ -81,21 +81,43 @@ All protected endpoints require an `Authorization: Bearer <jwt>` header.
 
 ### Workspaces & Projects (`/api/v1/projects`)
 - `POST /api/v1/projects` — Create workspace (automatically derives `owner_id = current_user.id`).
-- `GET /api/v1/projects` — List workspaces owned by current user.
+- `GET /api/v1/projects?limit=100&offset=0` — List workspaces owned by current user with pagination.
 - `GET /api/v1/projects/{project_id}` — Return project details (scoped to owner).
 - `PATCH /api/v1/projects/{project_id}` — Update project name or description.
 - `DELETE /api/v1/projects/{project_id}` — Delete project and cascade-delete its documents.
 
 ### Documents & Ingestion (`/api/v1/projects/{project_id}/documents`)
-- `POST .../upload` — Upload multipart file (`.pdf`, `.md`, `.txt`, `.csv`). Enforces 10MB streaming size limit, validates magic byte signatures (`validate_file_content_signature`), extracts text via `pypdf`, and chunks with sentence overlap.
+- `POST .../upload` — Upload multipart file (`.pdf`, `.md`, `.txt`, `.csv`). Enforces 10MB chunked streaming memory bounds, validates magic byte signatures (`validate_file_content_signature`), extracts text via `pypdf`, and chunks with sentence overlap.
 - `POST .../` — Directly index JSON text payload (`name`, `content`, optional `file_type`).
-- `GET .../` — List documents for project with optional `?status=ready` filter.
+- `GET .../?limit=100&offset=0` — List documents for project with pagination and optional `?status=ready` filter.
 - `GET .../{document_id}` — Return document metadata and all its individual indexed chunks.
 - `DELETE .../{document_id}` — Cascades and deletes document and its chunks.
 
 ### Retrieval & Grounded Synthesis (`/api/v1/projects/{project_id}`)
 - `POST .../query` — Hybrid RAG query (`question`, `top_k`, `mode="hybrid"|"bm25"|"semantic"`). Executes BM25 lexical ranking and cosine vector similarity fused through Reciprocal Rank Fusion (RRF $k=60$), then generates grounded synthesis with source citations via the configured LLM provider.
 - `POST .../search` — Returns top-K ranked source chunks without LLM synthesis.
+
+### Evaluations & Telemetry (`/api/v1/projects/{project_id}/evaluations`)
+- `POST .../` — Record an automated retrieval evaluation benchmark run (`query`, `latency_ms`, `chunks_found`, `mode`, `status`).
+- `GET .../?limit=50&offset=0` — List historical evaluation benchmark runs for the workspace with pagination.
+
+---
+
+## Database Seeder CLI
+
+Vectorly includes an automated database seeder for instant production demo setup:
+
+```bash
+# Run seeder with sample projects, documents, chunks, and evaluations
+python -m app.scripts.seed
+
+# Or wipe and re-seed from scratch
+python -m app.scripts.seed --reset
+```
+
+Default credentials provisioned:
+- **Admin**: `admin@vectorly.ai` / `AdminPass123!`
+- **Staff Engineer**: `engineer@vectorly.ai` / `EngineerPass123!`
 
 ---
 
@@ -165,7 +187,7 @@ docker run -p 8000:8000 --env-file .env vectorly-backend
 
 ## Automated Pytest Suite
 
-58 automated tests cover authentication, project isolation, document ingestion, LLM providers, migrations, security headers, sliding-window rate limiting, and database readiness checks:
+65 automated tests cover authentication, project isolation, document ingestion, LLM providers, migrations, security headers, sliding-window rate limiting, database seeding, and database readiness checks:
 
 ```bash
 pytest -v

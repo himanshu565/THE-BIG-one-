@@ -45,6 +45,7 @@ def test_alembic_migrations_upgrade_and_downgrade(temp_db: str, monkeypatch: pyt
         assert "projects" in table_names
         assert "documents" in table_names
         assert "document_chunks" in table_names
+        assert "evaluation_runs" in table_names
         assert "alembic_version" in table_names
 
         user_columns = {col["name"] for col in inspector.get_columns("users")}
@@ -58,6 +59,9 @@ def test_alembic_migrations_upgrade_and_downgrade(temp_db: str, monkeypatch: pyt
 
         chunk_columns = {col["name"] for col in inspector.get_columns("document_chunks")}
         assert {"id", "document_id", "chunk_index", "content", "token_count"}.issubset(chunk_columns)
+
+        eval_columns = {col["name"] for col in inspector.get_columns("evaluation_runs")}
+        assert {"id", "project_id", "query", "latency_ms", "chunks_found", "mode", "status", "created_at"}.issubset(eval_columns)
 
         engine.dispose()
 

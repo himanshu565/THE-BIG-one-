@@ -71,12 +71,23 @@ async def upload_document(
             detail=f"Uploaded file exceeds maximum limit of {max_mb} MB.",
         )
 
-    raw_bytes = await file.read()
-    if len(raw_bytes) > max_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Uploaded file exceeds maximum limit of {max_mb} MB.",
-        )
+    # Chunked streaming read to prevent unbounded memory buffering (Anti-DoS / Memory Guard)
+    chunk_size = 64 * 1024  # 64 KB chunks
+    chunks_read: list[bytes] = []
+    total_bytes = 0
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
+        total_bytes += len(chunk)
+        if total_bytes > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Uploaded file exceeds maximum limit of {max_mb} MB.",
+            )
+        chunks_read.append(chunk)
+
+    raw_bytes = b"".join(chunks_read)
 
     # 4. Content signature and empty payload validation
     try:
@@ -160,12 +171,16 @@ def create_document(
 def list_documents(
     project_id: int,
     status_filter: str | None = Query(default=None, alias="status"),
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[DocumentResponse]:
-    """List all documents for an owned project."""
+    """List all documents for an owned project with pagination."""
     _verify_project_ownership(db, project_id=project_id, user_id=current_user.id)
-    return documents.list_documents(db, project_id=project_id, status=status_filter)
+    return documents.list_documents(
+        db, project_id=project_id, status=status_filter, limit=limit, offset=offset
+    )
 
 
 @router.get("/{document_id}", response_model=DocumentDetailResponse)

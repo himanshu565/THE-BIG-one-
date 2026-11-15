@@ -40,6 +40,9 @@ DELETE /api/v1/projects/{project_id}/documents/{document_id}
 
 POST   /api/v1/projects/{project_id}/query
 POST   /api/v1/projects/{project_id}/search
+
+POST   /api/v1/projects/{project_id}/evaluations
+GET    /api/v1/projects/{project_id}/evaluations?limit=50&offset=0
 ```
 
 ## 2. System design approach
@@ -113,6 +116,7 @@ backend/
 │   │   ├── auth.py           # Registration and login endpoints
 │   │   ├── deps.py           # Dependency injection (get_current_user)
 │   │   ├── documents.py      # Document upload and retrieval endpoints
+│   │   ├── evaluations.py    # Persistent retrieval benchmark endpoints
 │   │   ├── projects.py       # Authenticated project CRUD endpoints
 │   │   └── retrieval.py      # Hybrid RAG query and search endpoints
 │   ├── config/
@@ -127,17 +131,22 @@ backend/
 │   │   └── database.py       # SQLAlchemy engine, Base, and session dependency
 │   ├── models/
 │   │   ├── document.py       # Document and DocumentChunk table mappings
+│   │   ├── evaluation.py     # EvaluationRun table mapping
 │   │   ├── project.py        # Project table mapping
 │   │   └── user.py           # User table mapping
 │   ├── repositories/
 │   │   ├── documents.py      # Document persistence operations
+│   │   ├── evaluations.py    # Benchmark evaluation persistence operations
 │   │   ├── projects.py       # Project persistence operations (owner scoped)
 │   │   └── users.py          # User persistence operations
 │   ├── schemas/
 │   │   ├── document.py       # Document request and response contracts
+│   │   ├── evaluation.py     # Evaluation benchmark schemas
 │   │   ├── project.py        # Project request and response contracts
 │   │   ├── query.py          # Query request, response, and citation schemas
 │   │   └── user.py           # Auth request and response contracts
+│   ├── scripts/
+│   │   └── seed.py           # Automated database seeder CLI
 │   ├── services/
 │   │   ├── ingestion.py      # Text extraction and chunking pipeline
 │   │   ├── llm.py            # LLM provider interface and mock implementation
@@ -146,6 +155,7 @@ backend/
 ├── tests/
 │   ├── test_auth_api.py
 │   ├── test_documents_api.py
+│   ├── test_evaluations_api.py
 │   ├── test_health.py
 │   ├── test_ingestion.py
 │   ├── test_llm.py
@@ -154,6 +164,7 @@ backend/
 │   ├── test_projects_repository.py
 │   ├── test_retrieval.py
 │   ├── test_security.py
+│   ├── test_seed.py
 │   ├── test_settings.py
 │   └── test_users_repository.py
 ├── Dockerfile                # Production multi-stage backend container
@@ -178,6 +189,10 @@ backend/
 - `POST /api/v1/projects/{project_id}/query`: verifies project ownership, retrieves source chunks, generates grounded answer, and measures execution latency.
 - `POST /api/v1/projects/{project_id}/search`: retrieves ranked source chunks without LLM synthesis.
 
+### `app/scripts/seed.py`
+
+- `seed_database(db, reset, verbose)`: CLI tool populating enterprise users, demo projects, markdown documents, chunks, and evaluations.
+
 ## 6. Recommended next design steps
 
 The roadmap phases status:
@@ -190,6 +205,8 @@ The roadmap phases status:
 6. [COMPLETED] Add readiness health probes (`GET /health` with `SELECT 1` pool verification), structured JSON logging, and request correlation IDs (`X-Request-ID`).
 7. [COMPLETED] Add multi-instance anti-hack protections (trusted proxy IP spoofing defense, production secret safety gating).
 8. [COMPLETED] Containerization (`Dockerfile`, `docker-compose.yml`) and automated CI/CD pipeline (`.github/workflows/ci.yml`).
+9. [COMPLETED] Persistent evaluations domain, live latency telemetry, and limit/offset query pagination.
+10. [COMPLETED] Production database seeder CLI (`seed.py`) with reset and quiet flags.
 
 ## 7. How to run tests
 
@@ -197,4 +214,4 @@ The roadmap phases status:
 .\.venv\Scripts\python.exe -m pytest backend\tests -v
 ```
 
-All 58 backend tests verify project CRUD, auth, ingestion, LLM providers, migrations, security headers, rate limiting, and readiness probes.
+All 65 backend tests verify project CRUD, auth, ingestion, LLM providers, migrations, security headers, rate limiting, evaluations domain, database seeding, and readiness probes.

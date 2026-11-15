@@ -6,7 +6,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Docker](https://img.shields.io/badge/Docker-Multi--Stage-2496ED.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
 [![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF.svg?style=flat&logo=github-actions&logoColor=white)](https://github.com/)
-[![Tests](https://img.shields.io/badge/Tests-58_Passed-success.svg)](https://pytest.org)
+[![Tests](https://img.shields.io/badge/Tests-65_Passed-success.svg)](https://pytest.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 **Vectorly** is a production-grade, full-stack AI infrastructure platform designed for **reliable, citation-backed knowledge retrieval (RAG)**. It pairs a high-performance **FastAPI** backend with an intuitive, modular **Next.js 14** workspace.
@@ -18,17 +18,19 @@
 ## Key Features
 
 - 🔐 **Multi-Tenant JWT Authentication**: Secure bcrypt password hashing and token-scoped project authorization preventing cross-tenant data leakage.
-- 📁 **Isolated Project Workspaces**: Organize documentation into distinct workspaces with independent document indices.
+- 📁 **Isolated Project Workspaces**: Organize documentation into distinct workspaces with independent document indices and query pagination (`limit` & `offset`).
+- 🌱 **Production Database Seeder CLI**: Automated CLI seeder (`python -m app.scripts.seed`) providing instant idempotent population of enterprise demo users, technical workspaces, documents, chunks, and benchmark runs.
 - ⚡ **Hybrid RAG Retrieval Engine**: Combines **Okapi BM25 lexical search** and **Semantic Vector similarity** fused via **Reciprocal Rank Fusion (RRF)** ($k=60$) to eliminate keyword blindness and capture conceptual context.
 - 🧠 **Pluggable LLM Synthesis Layer**: Provider interface supporting **Mock**, **OpenAI**, **Google Gemini**, and **Ollama** local models producing grounded answers with verifiable source document citations and chunk indices.
-- 📄 **Hardened Multi-Format Ingestion**: Sliding-window chunker supporting `.md`, `.txt`, `.csv`, and `.pdf` (via `pypdf`) with sentence-boundary overlap preservation, magic byte inspection (`validate_file_content_signature`), and encrypted PDF detection.
+- 📊 **Persistent Evaluations Domain**: Automated benchmarking telemetry recording query latency, chunk coverage, and retrieval modes persisted directly in the relational schema.
+- 📄 **Hardened Multi-Format Ingestion**: Sliding-window chunker supporting `.md`, `.txt`, `.csv`, and `.pdf` (via `pypdf`) with sentence-boundary overlap preservation, magic byte inspection (`validate_file_content_signature`), encrypted PDF detection, and chunked streaming memory bounds (anti-DoS).
 - 🚀 **Zero-Config Local Development**: Pre-configured file-based SQLite database with automatic table initialization on launch—zero database servers required to get started. Seamlessly toggle to PostgreSQL in `.env`.
 - 🛡️ **Enterprise Anti-Hack Security Shield**: OWASP security headers (HSTS, strict CSP, X-Frame-Options: DENY, X-Content-Type-Options: nosniff), tiered sliding-window rate limiting per IP (20/min Auth, 60/min Queries, 300/min Global), reverse proxy IP spoofing defense (`TRUSTED_PROXIES`), path-traversal sanitization, 10MB upload cap, strict extension whitelisting, and adversarial prompt injection filtering.
 - 🩺 **Active Database Readiness Probing**: `GET /health` executes a `SELECT 1` query against the connection pool, returning `HTTP 503 Service Unavailable` if the database is disconnected.
 - 📊 **Structured JSON Logging & Observability**: Correlation middleware injecting and propagating `X-Request-ID` with structured single-line JSON log events.
 - 🐳 **Production Containerization & CI/CD**: Hardened multi-stage Dockerfiles (`backend/Dockerfile`, `Dockerfile`), `docker-compose.yml` (Postgres 16, Redis 7, Backend, Frontend), and automated GitHub Actions CI pipeline.
 - 📱 **Fully Modular Minimalist UI**: High-contrast monochrome interface with global Command Palette (`⌘ K` / `Ctrl+K`), desktop sidebar, mobile navigation, live latency benchmarks, real-time audit activity feed, and modal chunk inspectors.
-- 🧪 **Comprehensive Automated Verification**: 58 backend pytest tests (including 12 dedicated security tests), a 37-button / 34-interaction automated frontend test suite, and 0 ESLint warnings/errors.
+- 🧪 **Comprehensive Automated Verification**: 65 backend pytest tests (including dedicated security and database seed tests), a 37-button / 34-interaction automated frontend test suite, and 0 ESLint warnings/errors.
 
 ---
 
@@ -166,22 +168,44 @@ All protected endpoints require `Authorization: Bearer <token>`.
 - `GET /api/v1/auth/me` — Return currently authenticated user profile.
 
 ### Workspaces & Projects
-- `GET /api/v1/projects` — List all projects owned by the authenticated user.
+- `GET /api/v1/projects?limit=100&offset=0` — List projects owned by the authenticated user with limit/offset pagination.
 - `POST /api/v1/projects` — Create a new project workspace.
 - `GET /api/v1/projects/{project_id}` — Get project details by ID.
 - `PATCH /api/v1/projects/{project_id}` — Update project name or description.
 - `DELETE /api/v1/projects/{project_id}` — Delete project and its documents.
 
 ### Documents & Ingestion
-- `GET /api/v1/projects/{project_id}/documents` — List all documents in a project.
+- `GET /api/v1/projects/{project_id}/documents?limit=100&offset=0` — List documents in a project with pagination.
 - `POST /api/v1/projects/{project_id}/documents` — Index a text or markdown document directly.
-- `POST /api/v1/projects/{project_id}/documents/upload` — Upload and chunk a file (`.txt`, `.md`, `.csv`, `.pdf`).
+- `POST /api/v1/projects/{project_id}/documents/upload` — Upload and chunk a file (`.txt`, `.md`, `.csv`, `.pdf`) with chunked stream bounds.
 - `GET /api/v1/projects/{project_id}/documents/{document_id}` — Inspect document metadata and all indexed chunks.
 - `DELETE /api/v1/projects/{project_id}/documents/{document_id}` — Delete a document and its indexed chunks.
 
 ### Retrieval & RAG
 - `POST /api/v1/projects/{project_id}/query` — Execute hybrid search and generate grounded answer with citations.
 - `POST /api/v1/projects/{project_id}/search` — Return ranked source chunks without LLM synthesis.
+
+### Evaluations & Telemetry
+- `POST /api/v1/projects/{project_id}/evaluations` — Persist an automated benchmark run (latency, mode, chunks found).
+- `GET /api/v1/projects/{project_id}/evaluations?limit=50&offset=0` — Retrieve historical evaluation telemetry with pagination.
+
+---
+
+## Database Seeder CLI
+
+Vectorly includes an automated database seeder for instant production demo setup:
+
+```bash
+# Run seeder with sample projects, documents, chunks, and evaluations
+python -m app.scripts.seed
+
+# Or wipe and re-seed from scratch
+python -m app.scripts.seed --reset
+```
+
+Default credentials provisioned:
+- **Admin**: `admin@vectorly.ai` / `AdminPass123!`
+- **Staff Engineer**: `engineer@vectorly.ai` / `EngineerPass123!`
 
 ---
 
@@ -202,7 +226,7 @@ npm run lint
 ```
 
 ### 3. Backend Pytest Suite
-Runs 58 automated tests covering auth, security, repositories, chunking, migrations, LLM providers, and the hybrid retrieval engine:
+Runs 65 automated tests covering auth, security, repositories, chunking, migrations, LLM providers, evaluations, database seeder, and the hybrid retrieval engine:
 
 ```bash
 cd backend

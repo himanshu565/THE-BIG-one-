@@ -33,12 +33,14 @@ def list_documents(
     *,
     project_id: int,
     status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
 ) -> list[Document]:
-    """Return all documents for a project, optionally filtered by status."""
+    """Return all documents for a project, optionally filtered by status with pagination."""
     query = db.query(Document).filter(Document.project_id == project_id)
     if status is not None:
         query = query.filter(Document.status == status)
-    return query.order_by(Document.created_at.desc(), Document.id.desc()).all()
+    return query.order_by(Document.created_at.desc(), Document.id.desc()).limit(limit).offset(offset).all()
 
 
 def get_document(

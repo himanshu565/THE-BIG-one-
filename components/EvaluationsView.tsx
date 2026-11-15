@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
-import { CheckCircle2, Play, RefreshCw, Sparkles, Zap } from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { CheckCircle2, History, Play, RefreshCw, Sparkles, Zap } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
-import { api } from "@/lib/api";
+import { api, EvaluationItem } from "@/lib/api";
 import { SectionHeading } from "./SectionHeading";
 import { View } from "./types";
 
@@ -19,6 +19,28 @@ export function EvaluationsView({ setView }: { setView?: (view: View) => void })
   const { activeProject } = useAuth();
   const [runningBenchmark, setRunningBenchmark] = useState(false);
   const [benchmarkResults, setBenchmarkResults] = useState<BenchmarkResult[] | null>(null);
+  const [persistedRuns, setPersistedRuns] = useState<EvaluationItem[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  const fetchHistory = useCallback(async () => {
+    if (!activeProject) {
+      setPersistedRuns([]);
+      return;
+    }
+    setLoadingHistory(true);
+    try {
+      const runs = await api.evaluations.list(activeProject.id, 20);
+      setPersistedRuns(runs);
+    } catch {
+      setPersistedRuns([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [activeProject]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
 
   const handleRunBenchmark = async () => {
     if (!activeProject) return;
@@ -35,13 +57,25 @@ export function EvaluationsView({ setView }: { setView?: (view: View) => void })
       try {
         const chunks = await api.retrieval.search(activeProject.id, q, 3, "hybrid");
         const lat = Math.round(performance.now() - start);
+        const status = lat < 300 ? "Passed" : "Warning";
         results.push({
           query: q,
           latencyMs: lat,
           chunksFound: chunks.length,
           mode: "hybrid",
-          status: lat < 300 ? "Passed" : "Warning",
+          status,
         });
+
+        // Persist run to backend database
+        try {
+          await api.evaluations.create(activeProject.id, {
+            query: q,
+            latency_ms: lat,
+            chunks_found: chunks.length,
+            mode: "hybrid",
+            status,
+          });
+        } catch {}
       } catch {
         results.push({
           query: q,
@@ -54,6 +88,7 @@ export function EvaluationsView({ setView }: { setView?: (view: View) => void })
     }
     setBenchmarkResults(results);
     setRunningBenchmark(false);
+    await fetchHistory();
   };
 
   return (
@@ -105,7 +140,7 @@ export function EvaluationsView({ setView }: { setView?: (view: View) => void })
           <div className="mb-4 flex items-center justify-between border-b border-zinc-100 pb-4">
             <div>
               <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                Benchmark Results
+                Latest Benchmark Execution
               </p>
               <h2 className="text-base font-bold tracking-tight text-zinc-900">
                 Live Query Latency & Groundedness Test
@@ -130,6 +165,50 @@ export function EvaluationsView({ setView }: { setView?: (view: View) => void })
                     res.status === "Passed" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
                   }`}>
                     <CheckCircle2 size={10} /> {res.status}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {persistedRuns.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-zinc-200/90 bg-white p-6 shadow-card">
+          <div className="mb-4 flex items-center justify-between border-b border-zinc-100 pb-4">
+            <div>
+              <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                Persisted Telemetry
+              </p>
+              <h2 className="text-base font-bold tracking-tight text-zinc-900 flex items-center gap-2">
+                <History size={16} className={`text-zinc-700 ${loadingHistory ? "animate-spin" : ""}`} /> Historical Benchmark Runs
+              </h2>
+            </div>
+            <span className="font-mono text-xs text-zinc-500">
+              {persistedRuns.length} recorded {persistedRuns.length === 1 ? "run" : "runs"}
+            </span>
+          </div>
+
+          <div className="divide-y divide-zinc-100 text-xs">
+            {persistedRuns.map((run) => (
+              <div key={run.id} className="py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-mono text-[10px] text-zinc-400">#{run.id}</span>
+                  <span className="font-medium text-zinc-800 truncate max-w-sm">&quot;{run.query}&quot;</span>
+                  <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-mono text-zinc-600 uppercase">
+                    {run.mode}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 font-mono text-[11px] shrink-0">
+                  <span className="text-zinc-500">{run.chunks_found} chunks</span>
+                  <span className="font-semibold text-zinc-900">{run.latency_ms}ms</span>
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                    run.status === "Passed" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                  }`}>
+                    <CheckCircle2 size={10} /> {run.status}
+                  </span>
+                  <span className="text-[10px] text-zinc-400">
+                    {new Date(run.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
               </div>

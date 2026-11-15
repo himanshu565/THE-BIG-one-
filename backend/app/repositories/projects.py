@@ -20,12 +20,18 @@ def create_project(
     return project
 
 
-def list_projects(db: Session, *, owner_id: int | None = None) -> list[Project]:
-    """Return projects, optionally scoped to an owner."""
+def list_projects(
+    db: Session,
+    *,
+    owner_id: int | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[Project]:
+    """Return projects, optionally scoped to an owner with pagination."""
     query = db.query(Project)
     if owner_id is not None:
         query = query.filter(Project.owner_id == owner_id)
-    return query.order_by(Project.created_at.desc(), Project.id.desc()).all()
+    return query.order_by(Project.created_at.desc(), Project.id.desc()).limit(limit).offset(offset).all()
 
 
 def get_project(db: Session, *, project_id: int, owner_id: int | None = None) -> Project | None:
