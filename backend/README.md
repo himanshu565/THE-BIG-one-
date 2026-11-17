@@ -146,6 +146,11 @@ OPENAI_API_BASE=https://api.openai.com/v1
 GEMINI_API_KEY=
 OLLAMA_BASE_URL=http://localhost:11434
 
+# Pluggable Dense Neural Embedding Provider (local, openai, gemini, ollama)
+EMBEDDING_PROVIDER=local
+EMBEDDING_MODEL=local-hash-256
+EMBEDDING_DIMENSIONS=256
+
 # JWT Authentication
 # IMPORTANT: In production/staging, must be 32+ characters and non-default.
 JWT_SECRET_KEY=09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7
@@ -187,7 +192,7 @@ docker run -p 8000:8000 --env-file .env vectorly-backend
 
 ## Automated Pytest Suite
 
-65 automated tests cover authentication, project isolation, document ingestion, LLM providers, migrations, security headers, sliding-window rate limiting, database seeding, and database readiness checks:
+71 automated tests cover authentication, project isolation, document ingestion, dense neural embeddings, LLM providers, migrations, security headers, sliding-window rate limiting, evaluations domain, database seeding, and database readiness checks:
 
 ```bash
 pytest -v

@@ -40,6 +40,7 @@ export interface DocumentChunk {
   chunk_index: number;
   content: string;
   token_count: number;
+  has_embedding?: boolean;
   created_at: string;
 }
 

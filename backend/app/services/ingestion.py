@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 import pypdf
 
 from app.models.document import Document, DocumentChunk
+from app.services.embedding import get_embedding_provider
 
 
 def estimate_tokens(text: str) -> int:
@@ -163,9 +164,18 @@ def ingest_document(
     chunk_size: int = 500,
     chunk_overlap: int = 50,
 ) -> list[DocumentChunk]:
-    """Split document text into chunks, persist DocumentChunk records, and update document status."""
+    """Split document text into chunks, generate dense vector embeddings, persist DocumentChunk records, and update document status."""
     chunks = chunk_text(text, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     db_chunks: list[DocumentChunk] = []
+
+    # Generate dense vector embeddings for all chunks
+    embeddings: list[list[float]] = []
+    if chunks:
+        try:
+            embedder = get_embedding_provider()
+            embeddings = embedder.embed_texts(chunks)
+        except Exception:
+            embeddings = []
 
     for index, chunk_str in enumerate(chunks):
         chunk = DocumentChunk(
@@ -174,6 +184,8 @@ def ingest_document(
             content=chunk_str,
             token_count=estimate_tokens(chunk_str),
         )
+        if index < len(embeddings) and embeddings[index]:
+            chunk.set_embedding(embeddings[index])
         db.add(chunk)
         db_chunks.append(chunk)
 

@@ -621,15 +621,16 @@ The database uses SQLAlchemy 2.0 ORM models backed by Alembic migrations:
 │ chunk_index            │           │ name             │
 │ content                │           │ file_type        │
 │ token_count            │           │ file_size        │
-│ created_at             │           │ status           │
-└────────────────────────┘           │ created_at       │
-                                     └──────────────────┘
+│ embedding (JSON Text)  │           │ status           │
+│ created_at             │           │ created_at       │
+└────────────────────────┘           └──────────────────┘
 ```
 
 ### Alembic Migration Versions:
 - `e12d264745ad_create_users_and_projects_tables.py`: Creates `users` and `projects` with owner foreign key.
 - `f5eb10c9080e_create_documents_and_chunks_tables.py`: Creates `documents` and `document_chunks` with cascade delete on document removal.
 - `c8f1e2a3b4c5_create_evaluations_table.py`: Creates `evaluation_runs` table with foreign key reference to `projects.id`.
+- `d9a2b3c4d5e6_add_embedding_to_document_chunks.py`: Adds dense vector `embedding` storage column to `document_chunks`.
 
 ---
 
@@ -638,8 +639,9 @@ The database uses SQLAlchemy 2.0 ORM models backed by Alembic migrations:
 Vectorly maintains comprehensive automated test coverage across both backend and frontend:
 
 ### Backend Pytest Suite (`backend/tests/`)
-65 automated tests covering:
+71 automated tests covering:
 - `test_security.py`: OWASP security headers, sliding-window rate limiting (HTTP 429), dangerous file type rejection, file size limits (HTTP 413), path-traversal sanitization, prompt injection filters, and trusted proxy IP spoofing defense.
+- `test_embedding.py`: Pluggable dense vector providers (`LocalEmbeddingProvider`, `OpenAIEmbeddingProvider`, `GeminiEmbeddingProvider`, `OllamaEmbeddingProvider`), L2 unit normalization, determinism, cosine similarity edge cases, and provider factory validation.
 - `test_evaluations_api.py`: Automated retrieval evaluations recording, cross-tenant project scoping, validation errors, and limit/offset query pagination.
 - `test_seed.py`: Automated database seeder CLI validation, entity relationship creation, idempotency tests, and database reset wipe/repopulation.
 - `test_health.py`: Database readiness probing (`SELECT 1`), liveness status, and HTTP 503 Service Unavailable handling on database pool disconnection.
@@ -647,10 +649,10 @@ Vectorly maintains comprehensive automated test coverage across both backend and
 - `test_auth_api.py`: Registration, login, bad credentials, expired tokens, duplicate email rejection.
 - `test_projects_api.py`: User-scoped project CRUD, cross-user authorization barriers, and pagination query params.
 - `test_documents_api.py`: File upload with chunked stream bounds, text document creation, deletion, multi-chunk verification, magic byte verification, executable rejection, and pagination.
-- `test_ingestion.py`: Token estimation, paragraph chunking with sentence overlap, PDF text extraction via pypdf, corrupted PDF rejection.
+- `test_ingestion.py`: Token estimation, paragraph chunking with sentence overlap, dense vector chunk embedding persistence, PDF text extraction via pypdf, corrupted PDF rejection.
 - `test_llm.py`: MockLLMProvider, OpenAILLMProvider, GeminiLLMProvider, OllamaLLMProvider, provider factory, prompt formatting.
-- `test_retrieval.py`: BM25 scoring, semantic similarity, RRF rank combination, grounded answer synthesis.
-- `test_migrations.py`: Alembic upgrade/downgrade consistency across all revisions including `evaluation_runs`.
+- `test_retrieval.py`: BM25 scoring, dense semantic vector cosine similarity, RRF rank combination, grounded answer synthesis.
+- `test_migrations.py`: Alembic upgrade/downgrade consistency across all revisions including `evaluation_runs` and `document_chunks.embedding`.
 
 ```bash
 .\.venv\Scripts\python.exe -m pytest backend/tests -v

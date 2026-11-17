@@ -58,7 +58,7 @@ def test_alembic_migrations_upgrade_and_downgrade(temp_db: str, monkeypatch: pyt
         assert {"id", "project_id", "name", "file_type", "file_size", "status", "chunk_count"}.issubset(doc_columns)
 
         chunk_columns = {col["name"] for col in inspector.get_columns("document_chunks")}
-        assert {"id", "document_id", "chunk_index", "content", "token_count"}.issubset(chunk_columns)
+        assert {"id", "document_id", "chunk_index", "content", "token_count", "embedding"}.issubset(chunk_columns)
 
         eval_columns = {col["name"] for col in inspector.get_columns("evaluation_runs")}
         assert {"id", "project_id", "query", "latency_ms", "chunks_found", "mode", "status", "created_at"}.issubset(eval_columns)

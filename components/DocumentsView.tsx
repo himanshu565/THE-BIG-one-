@@ -369,8 +369,13 @@ export function DocumentsView({ setView }: { setView?: (view: View) => void }) {
                     className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-3.5 text-xs"
                   >
                     <div className="mb-1.5 flex items-center justify-between text-zinc-600">
-                      <span className="font-mono font-semibold text-zinc-900">
+                      <span className="flex items-center gap-2 font-mono font-semibold text-zinc-900">
                         Chunk #{chunk.chunk_index}
+                        {chunk.has_embedding && (
+                          <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.2 font-mono text-[9px] font-medium text-emerald-700">
+                            Neural Vector
+                          </span>
+                        )}
                       </span>
                       <span className="font-mono text-[10px] text-zinc-500">
                         {chunk.token_count} tokens · ID #{chunk.id}

@@ -106,4 +106,6 @@ def test_ingest_document(db_session: Session) -> None:
     assert doc.chunk_count == len(chunks)
     assert len(chunks) > 0
     assert chunks[0].document_id == doc.id
+    assert chunks[0].has_embedding is True
+    assert len(chunks[0].get_embedding() or []) == 256
 

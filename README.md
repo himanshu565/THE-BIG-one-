@@ -6,7 +6,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Docker](https://img.shields.io/badge/Docker-Multi--Stage-2496ED.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
 [![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF.svg?style=flat&logo=github-actions&logoColor=white)](https://github.com/)
-[![Tests](https://img.shields.io/badge/Tests-65_Passed-success.svg)](https://pytest.org)
+[![Tests](https://img.shields.io/badge/Tests-71_Passed-success.svg)](https://pytest.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 **Vectorly** is a production-grade, full-stack AI infrastructure platform designed for **reliable, citation-backed knowledge retrieval (RAG)**. It pairs a high-performance **FastAPI** backend with an intuitive, modular **Next.js 14** workspace.
@@ -20,7 +20,8 @@
 - 🔐 **Multi-Tenant JWT Authentication**: Secure bcrypt password hashing and token-scoped project authorization preventing cross-tenant data leakage.
 - 📁 **Isolated Project Workspaces**: Organize documentation into distinct workspaces with independent document indices and query pagination (`limit` & `offset`).
 - 🌱 **Production Database Seeder CLI**: Automated CLI seeder (`python -m app.scripts.seed`) providing instant idempotent population of enterprise demo users, technical workspaces, documents, chunks, and benchmark runs.
-- ⚡ **Hybrid RAG Retrieval Engine**: Combines **Okapi BM25 lexical search** and **Semantic Vector similarity** fused via **Reciprocal Rank Fusion (RRF)** ($k=60$) to eliminate keyword blindness and capture conceptual context.
+- ⚡ **Hybrid RAG & Dense Vector Retrieval Engine**: Combines **Okapi BM25 lexical search** and **True Dense Vector Cosine Similarity** (stored on every chunk) fused via **Reciprocal Rank Fusion (RRF)** ($k=60$) to eliminate keyword blindness and capture conceptual context.
+- 🧬 **Pluggable Neural Embedding Layer**: Provider interface supporting **OpenAI** (`text-embedding-3-small`), **Google Gemini** (`text-embedding-004`), **Ollama** (`nomic-embed-text`), and a deterministic **Local 256-dim Sub-Word Hash Embedder** for zero-config offline vector search.
 - 🧠 **Pluggable LLM Synthesis Layer**: Provider interface supporting **Mock**, **OpenAI**, **Google Gemini**, and **Ollama** local models producing grounded answers with verifiable source document citations and chunk indices.
 - 📊 **Persistent Evaluations Domain**: Automated benchmarking telemetry recording query latency, chunk coverage, and retrieval modes persisted directly in the relational schema.
 - 📄 **Hardened Multi-Format Ingestion**: Sliding-window chunker supporting `.md`, `.txt`, `.csv`, and `.pdf` (via `pypdf`) with sentence-boundary overlap preservation, magic byte inspection (`validate_file_content_signature`), encrypted PDF detection, and chunked streaming memory bounds (anti-DoS).
@@ -29,8 +30,8 @@
 - 🩺 **Active Database Readiness Probing**: `GET /health` executes a `SELECT 1` query against the connection pool, returning `HTTP 503 Service Unavailable` if the database is disconnected.
 - 📊 **Structured JSON Logging & Observability**: Correlation middleware injecting and propagating `X-Request-ID` with structured single-line JSON log events.
 - 🐳 **Production Containerization & CI/CD**: Hardened multi-stage Dockerfiles (`backend/Dockerfile`, `Dockerfile`), `docker-compose.yml` (Postgres 16, Redis 7, Backend, Frontend), and automated GitHub Actions CI pipeline.
-- 📱 **Fully Modular Minimalist UI**: High-contrast monochrome interface with global Command Palette (`⌘ K` / `Ctrl+K`), desktop sidebar, mobile navigation, live latency benchmarks, real-time audit activity feed, and modal chunk inspectors.
-- 🧪 **Comprehensive Automated Verification**: 65 backend pytest tests (including dedicated security and database seed tests), a 37-button / 34-interaction automated frontend test suite, and 0 ESLint warnings/errors.
+- 📱 **Fully Modular Minimalist UI**: High-contrast monochrome interface with global Command Palette (`⌘ K` / `Ctrl+K`), desktop sidebar, mobile navigation, live latency benchmarks, real-time audit activity feed, and modal chunk inspectors with neural vector status badges.
+- 🧪 **Comprehensive Automated Verification**: 71 backend pytest tests (including dedicated security, neural embedding, and database seed tests), a 37-button / 34-interaction automated frontend test suite, and 0 ESLint warnings/errors.
 
 ---
 
@@ -226,7 +227,7 @@ npm run lint
 ```
 
 ### 3. Backend Pytest Suite
-Runs 65 automated tests covering auth, security, repositories, chunking, migrations, LLM providers, evaluations, database seeder, and the hybrid retrieval engine:
+Runs 71 automated tests covering auth, security, repositories, chunking, dense neural embeddings, migrations, LLM providers, evaluations, database seeder, and the hybrid retrieval engine:
 
 ```bash
 cd backend

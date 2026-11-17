@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", validation_alias="REDIS_URL")
     llm_provider: str = Field(default="mock", validation_alias="LLM_PROVIDER")
     llm_model: str = Field(default="local-development", validation_alias="LLM_MODEL")
+    embedding_provider: str = Field(default="local", validation_alias="EMBEDDING_PROVIDER")
+    embedding_model: str = Field(default="local-hash-256", validation_alias="EMBEDDING_MODEL")
+    embedding_dimensions: int = Field(default=256, validation_alias="EMBEDDING_DIMENSIONS")
     openai_api_key: str | None = Field(default=None, validation_alias="OPENAI_API_KEY")
     openai_api_base: str = Field(default="https://api.openai.com/v1", validation_alias="OPENAI_API_BASE")
     gemini_api_key: str | None = Field(default=None, validation_alias="GEMINI_API_KEY")
@@ -82,6 +85,8 @@ class Settings(BaseSettings):
         "app_env",
         "llm_provider",
         "llm_model",
+        "embedding_provider",
+        "embedding_model",
         "jwt_secret_key",
         "jwt_algorithm",
     )

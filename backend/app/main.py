@@ -26,6 +26,14 @@ async def lifespan(app: FastAPI):
     # Automatically ensure tables exist on startup (helpful for zero-config SQLite development)
     try:
         Base.metadata.create_all(bind=engine)
+        from sqlalchemy import inspect
+        inspector = inspect(engine)
+        if "document_chunks" in inspector.get_table_names():
+            cols = {c["name"] for c in inspector.get_columns("document_chunks")}
+            if "embedding" not in cols:
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE document_chunks ADD COLUMN embedding TEXT;"))
+                    conn.commit()
     except Exception:
         pass
     yield

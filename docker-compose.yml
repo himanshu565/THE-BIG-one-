@@ -45,6 +45,9 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - LLM_PROVIDER=mock
       - LLM_MODEL=local-development
+      - EMBEDDING_PROVIDER=local
+      - EMBEDDING_MODEL=local-hash-256
+      - EMBEDDING_DIMENSIONS=256
       - JWT_SECRET_KEY=c3629f12089f46bca1387d7f8d68cf6a953a7f80dbca4326b4887342617dfec9
       - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
       - TRUSTED_PROXIES=127.0.0.1,::1

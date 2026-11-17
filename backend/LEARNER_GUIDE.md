@@ -148,13 +148,15 @@ backend/
 │   ├── scripts/
 │   │   └── seed.py           # Automated database seeder CLI
 │   ├── services/
-│   │   ├── ingestion.py      # Text extraction and chunking pipeline
-│   │   ├── llm.py            # LLM provider interface and mock implementation
-│   │   └── retrieval.py      # BM25, semantic similarity, and RRF ranker
+│   │   ├── embedding.py      # Dense neural embedding providers (Local, OpenAI, Gemini, Ollama)
+│   │   ├── ingestion.py      # Text extraction, chunking, and vector embedding pipeline
+│   │   ├── llm.py            # LLM provider interface and implementations
+│   │   └── retrieval.py      # BM25, dense vector cosine similarity, and RRF ranker
 │   └── main.py               # FastAPI application composition
 ├── tests/
 │   ├── test_auth_api.py
 │   ├── test_documents_api.py
+│   ├── test_embedding.py
 │   ├── test_evaluations_api.py
 │   ├── test_health.py
 │   ├── test_ingestion.py
@@ -175,10 +177,17 @@ backend/
 
 ## 5. File-by-file explanation
 
+### `app/services/embedding.py`
+
+- `BaseEmbeddingProvider`: abstract interface for dense vector embedding generation.
+- `LocalEmbeddingProvider`: zero-config offline 256-dim unit-normalized sub-word & token embedder.
+- `OpenAIEmbeddingProvider`, `GeminiEmbeddingProvider`, `OllamaEmbeddingProvider`: cloud and local neural embedding clients.
+- `cosine_similarity(vec_a, vec_b)`: exact geometric cosine similarity between dense float vectors.
+
 ### `app/services/retrieval.py`
 
 - `bm25_rank(query_tokens, corpus_tokens)`: calculates Okapi BM25 scores with document length normalization.
-- `semantic_vector_rank(query_tokens, corpus_tokens)`: calculates cosine similarity between term vectors.
+- `dense_vector_rank(query_embedding, corpus_embeddings)`: calculates geometric cosine similarity against stored chunk embeddings.
 - `reciprocal_rank_fusion(bm25_order, semantic_order, total_docs)`: combines both rankings using standard RRF ($k=60$).
 - `retrieve_chunks(db, project_id, query, top_k, mode)`: executes ranking and returns structured `SourceCitation` models.
 
@@ -193,7 +202,7 @@ backend/
 
 ### `app/scripts/seed.py`
 
-- `seed_database(db, reset, verbose)`: CLI tool populating enterprise users, demo projects, markdown documents, chunks, and evaluations.
+- `seed_database(db, reset, verbose)`: CLI tool populating enterprise users, demo projects, markdown documents, vectorized chunks, and evaluations.
 
 ## 6. Recommended next design steps
 
@@ -209,6 +218,7 @@ The roadmap phases status:
 8. [COMPLETED] Containerization (`Dockerfile`, `docker-compose.yml`) and automated CI/CD pipeline (`.github/workflows/ci.yml`).
 9. [COMPLETED] Persistent evaluations domain, live latency telemetry, and limit/offset query pagination.
 10. [COMPLETED] Production database seeder CLI (`seed.py`) with reset and quiet flags.
+11. [COMPLETED] True dense neural embeddings (`Local`, `OpenAI`, `Gemini`, `Ollama`) stored on `document_chunks` and integrated into Hybrid RRF retrieval.
 
 ## 7. How to run tests
 
@@ -216,4 +226,4 @@ The roadmap phases status:
 .\.venv\Scripts\python.exe -m pytest backend\tests -v
 ```
 
-All 65 backend tests verify project CRUD, auth, ingestion, LLM providers, migrations, security headers, rate limiting, evaluations domain, database seeding, and readiness probes.
+All 71 backend tests verify project CRUD, auth, ingestion, dense neural embeddings, LLM providers, migrations, security headers, rate limiting, evaluations domain, database seeding, and readiness probes.

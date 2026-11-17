@@ -21,6 +21,7 @@ class DocumentChunkResponse(BaseModel):
     chunk_index: int
     content: str
     token_count: int
+    has_embedding: bool = False
     created_at: datetime
 
 

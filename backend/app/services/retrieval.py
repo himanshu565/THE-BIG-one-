@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models.document import Document, DocumentChunk
 from app.schemas.query import SourceCitation
+from app.services.embedding import cosine_similarity, get_embedding_provider
 
 
 def tokenize(text: str) -> list[str]:
@@ -87,6 +88,23 @@ def semantic_vector_rank(
     return scores
 
 
+def dense_vector_rank(
+    query_embedding: list[float],
+    corpus_embeddings: list[list[float] | None],
+) -> list[float]:
+    """Calculate cosine similarity between a dense query vector and stored chunk embeddings."""
+    if not query_embedding or not corpus_embeddings:
+        return [0.0] * len(corpus_embeddings)
+
+    scores: list[float] = []
+    for vec in corpus_embeddings:
+        if not vec or len(vec) != len(query_embedding):
+            scores.append(0.0)
+        else:
+            scores.append(cosine_similarity(query_embedding, vec))
+    return scores
+
+
 def reciprocal_rank_fusion(
     bm25_order: list[int],
     semantic_order: list[int],
@@ -114,7 +132,7 @@ def retrieve_chunks(
     top_k: int = 5,
     mode: str = "hybrid",
 ) -> list[SourceCitation]:
-    """Retrieve top-K relevant chunks for a project using BM25, semantic, or hybrid search."""
+    """Retrieve top-K relevant chunks for a project using BM25, dense semantic vectors, or hybrid RRF."""
     # Fetch all chunks and parent documents for the project
     rows = (
         db.query(DocumentChunk, Document.name)
@@ -134,7 +152,39 @@ def retrieve_chunks(
     total_docs = len(rows)
 
     bm25_scores = bm25_rank(query_tokens, corpus_tokens)
-    semantic_scores = semantic_vector_rank(query_tokens, corpus_tokens)
+
+    # Dense neural vector similarity scoring (skip when purely lexical BM25 mode)
+    semantic_scores: list[float]
+    if mode == "bm25":
+        semantic_scores = [0.0] * total_docs
+    else:
+        try:
+            embedder = get_embedding_provider()
+            query_embedding = embedder.embed_text(query)
+            expected_dim = len(query_embedding)
+
+            resolved_embeddings: list[list[float] | None] = []
+            missing_indices: list[int] = []
+            missing_texts: list[str] = []
+
+            for i, (chunk, _) in enumerate(rows):
+                stored_vec = chunk.get_embedding()
+                if stored_vec and len(stored_vec) == expected_dim:
+                    resolved_embeddings.append(stored_vec)
+                else:
+                    resolved_embeddings.append(None)
+                    missing_indices.append(i)
+                    missing_texts.append(chunk.content)
+
+            if missing_texts:
+                computed = embedder.embed_texts(missing_texts)
+                for idx_pos, vec in zip(missing_indices, computed):
+                    resolved_embeddings[idx_pos] = vec
+
+            semantic_scores = dense_vector_rank(query_embedding, resolved_embeddings)
+        except Exception:
+            # Safe graceful degradation to token cosine similarity
+            semantic_scores = semantic_vector_rank(query_tokens, corpus_tokens)
 
     # Rank indices (descending score)
     bm25_order = sorted(range(total_docs), key=lambda i: bm25_scores[i], reverse=True)
