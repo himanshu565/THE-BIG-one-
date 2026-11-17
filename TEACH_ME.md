@@ -573,22 +573,27 @@ Implemented in `backend/app/config/settings.py` and `backend/app/main.py`:
 Vectorly includes production-ready Docker containers and automated CI/CD workflows:
 
 ### Production Multi-Stage Containers:
-1. **Backend Container (`backend/Dockerfile`)**:
+1. **Backend Container (`backend/Dockerfile` & `backend/entrypoint.sh`)**:
    - Multi-stage build on `python:3.12-slim`.
    - Compiles native dependencies (`libpq-dev`, `build-essential`) in a disposable builder stage and copies lightweight pre-compiled wheels into the final runner image.
    - Non-root unprivileged system user (`vectorly:vectorly`).
+   - Production entrypoint script (`entrypoint.sh`) that automatically runs `alembic upgrade head` and optional database seeding (`SEED_ON_STARTUP=true`) before launching Uvicorn.
+   - Context minimization via `backend/.dockerignore` to prevent uploading `.venv`, `vectorly.db`, or test caches to Docker daemon.
    - Built-in container `HEALTHCHECK` probing `GET /health` with automatic container restart upon failure.
 2. **Frontend Container (`Dockerfile`)**:
    - Multi-stage build on `node:20-alpine`.
    - Caches `node_modules` via `npm ci` in `deps` stage, builds static bundle in `builder` stage.
+   - Context minimization via `.dockerignore` excluding `node_modules`, `.next`, and cache directories.
    - Non-root user (`nextjs:nodejs`, UID 1001) in lightweight runner stage.
+   - Built-in container `HEALTHCHECK` probing `http://localhost:3000/`.
 3. **Multi-Service Composition (`docker-compose.yml`)**:
-   - Manages `postgres` (PostgreSQL 16), `redis` (Redis 7), `backend` (FastAPI), and `frontend` (Next.js) with named volume persistence and service health dependency chaining (`condition: service_healthy`).
+   - Manages `postgres` (PostgreSQL 16), `redis` (Redis 7), `backend` (FastAPI), and `frontend` (Next.js) with named volume persistence, automated seeding, and service health dependency chaining (`condition: service_healthy`).
 
 ### Continuous Integration Pipeline (`.github/workflows/ci.yml`):
 - Automatically triggers on every `push` and `pull_request` to `main`.
-- **Backend Job**: Sets up Python 3.12, installs dependencies, runs all 58 pytest unit, API, migration, and security tests.
+- **Backend Job**: Sets up Python 3.12, installs dependencies, runs all 65 pytest unit, API, migration, security, and seeding tests.
 - **Frontend Job**: Sets up Node.js 20, runs ESLint (`npm run lint`), executes 37 UI button tests and 34 runtime interaction flows (`npm test`), and verifies static production compilation (`npm run build`).
+- **Docker Build Job**: Tests and validates that both backend and frontend multi-stage Docker container images build cleanly via Buildx.
 
 ---
 

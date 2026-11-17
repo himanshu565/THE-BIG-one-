@@ -1,0 +1,14 @@
+# Backend Docker Build Ignore List
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+tests
+*.log
+vectorly.db
+.git
+.gitignore
+.env
+.env.*

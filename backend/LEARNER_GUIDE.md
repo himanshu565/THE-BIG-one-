@@ -168,6 +168,8 @@ backend/
 │   ├── test_settings.py
 │   └── test_users_repository.py
 ├── Dockerfile                # Production multi-stage backend container
+├── entrypoint.sh             # Container startup entrypoint (migrations & seeding)
+├── .dockerignore             # Docker build context exclusions
 └── requirements.txt
 ```
 
