@@ -33,3 +33,25 @@ class QueryResponse(BaseModel):
     model: str
     latency_ms: int
 
+
+class StreamSourcesEvent(BaseModel):
+    """Initial event emitted over SSE containing retrieved sources and retrieval metadata."""
+
+    sources: list[SourceCitation]
+    retrieval_mode: str
+    provider: str
+    model: str
+
+
+class StreamTokenEvent(BaseModel):
+    """Progressive token delta emitted over SSE."""
+
+    delta: str
+
+
+class StreamDoneEvent(BaseModel):
+    """Final completion event emitted over SSE containing total latency and complete answer."""
+
+    latency_ms: int
+    answer: str
+

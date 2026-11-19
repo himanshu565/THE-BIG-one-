@@ -119,6 +119,89 @@ def test_ollama_llm_provider(sample_sources: list[SourceCitation]) -> None:
         mock_post.assert_called_once()
 
 
+def test_mock_llm_provider_streaming(sample_sources: list[SourceCitation]) -> None:
+    provider = MockLLMProvider()
+    tokens = list(provider.stream_grounded_answer("What is the index?", sample_sources))
+    assert len(tokens) > 1
+    reconstructed = "".join(tokens)
+    assert reconstructed == provider.generate_grounded_answer("What is the index?", sample_sources)
+    assert "[architecture.md · chunk 0]" in reconstructed
+
+    # Empty sources
+    empty_tokens = list(provider.stream_grounded_answer("Unknown", []))
+    assert "".join(empty_tokens) == provider.generate_grounded_answer("Unknown", [])
+
+
+def test_openai_llm_provider_streaming(sample_sources: list[SourceCitation]) -> None:
+    import json
+    provider = OpenAILLMProvider(api_key="sk-test-key", model="gpt-4o-mini")
+
+    empty = list(provider.stream_grounded_answer("question", []))
+    assert "could not find sufficient information" in "".join(empty)
+
+    mock_stream_response = MagicMock()
+    mock_stream_response.status_code = 200
+    mock_stream_response.raise_for_status = MagicMock()
+    mock_stream_response.iter_lines.return_value = [
+        f"data: {json.dumps({'choices': [{'delta': {'content': 'Real-time '}}]})}",
+        f"data: {json.dumps({'choices': [{'delta': {'content': 'streaming.'}}]})}",
+        "data: [DONE]",
+    ]
+
+    mock_client = MagicMock()
+    mock_client.stream.return_value.__enter__.return_value = mock_stream_response
+
+    with patch("httpx.Client", return_value=mock_client):
+        tokens = list(provider.stream_grounded_answer("question", sample_sources))
+        assert tokens == ["Real-time ", "streaming."]
+
+
+def test_gemini_llm_provider_streaming(sample_sources: list[SourceCitation]) -> None:
+    import json
+    provider = GeminiLLMProvider(api_key="gemini-test-key", model="gemini-1.5-flash")
+
+    empty = list(provider.stream_grounded_answer("question", []))
+    assert "could not find sufficient information" in "".join(empty)
+
+    mock_stream_response = MagicMock()
+    mock_stream_response.status_code = 200
+    mock_stream_response.raise_for_status = MagicMock()
+    mock_stream_response.iter_lines.return_value = [
+        f"data: {json.dumps({'candidates': [{'content': {'parts': [{'text': 'Gemini '}]}}]})}",
+        f"data: {json.dumps({'candidates': [{'content': {'parts': [{'text': 'SSE token'}]}}]})}",
+    ]
+
+    mock_client = MagicMock()
+    mock_client.stream.return_value.__enter__.return_value = mock_stream_response
+
+    with patch("httpx.Client", return_value=mock_client):
+        tokens = list(provider.stream_grounded_answer("question", sample_sources))
+        assert tokens == ["Gemini ", "SSE token"]
+
+
+def test_ollama_llm_provider_streaming(sample_sources: list[SourceCitation]) -> None:
+    import json
+    provider = OllamaLLMProvider(base_url="http://localhost:11434", model="llama3")
+
+    empty = list(provider.stream_grounded_answer("question", []))
+    assert "could not find sufficient information" in "".join(empty)
+
+    mock_stream_response = MagicMock()
+    mock_stream_response.status_code = 200
+    mock_stream_response.raise_for_status = MagicMock()
+    mock_stream_response.iter_lines.return_value = [
+        json.dumps({"message": {"content": "Ollama "}, "done": False}),
+        json.dumps({"message": {"content": "token"}, "done": True}),
+    ]
+
+    mock_client = MagicMock()
+    mock_client.stream.return_value.__enter__.return_value = mock_stream_response
+
+    with patch("httpx.Client", return_value=mock_client):
+        tokens = list(provider.stream_grounded_answer("question", sample_sources))
+        assert tokens == ["Ollama ", "token"]
+
+
 def test_get_llm_provider_factory() -> None:
     # 1. Mock provider
     with patch("app.services.llm.get_settings") as mock_settings:
