@@ -67,6 +67,26 @@ export interface QueryResponse {
   latency_ms: number;
 }
 
+export interface StreamSourcesData {
+  sources: SourceCitation[];
+  retrieval_mode: string;
+  provider: string;
+  model: string;
+}
+
+export interface StreamDoneData {
+  latency_ms: number;
+  answer: string;
+}
+
+export interface StreamQueryHandlers {
+  onSources?: (data: StreamSourcesData) => void;
+  onToken?: (delta: string) => void;
+  onDone?: (data: StreamDoneData) => void;
+  onError?: (err: Error) => void;
+  signal?: AbortSignal;
+}
+
 export interface EvaluationItem {
   id: number;
   project_id: number;
@@ -227,6 +247,98 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ question, top_k: topK, mode }),
       });
+    },
+    async queryStream(
+      projectId: number,
+      question: string,
+      handlers: StreamQueryHandlers,
+      topK: number = 5,
+      mode: string = "hybrid"
+    ): Promise<void> {
+      const token = getToken();
+      const headers = new Headers({
+        "Content-Type": "application/json",
+      });
+      if (token) {
+        headers.set("Authorization", `Bearer ${token}`);
+      }
+
+      const response = await fetch(`${API_BASE}/projects/${projectId}/query/stream`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ question, top_k: topK, mode }),
+        signal: handlers.signal,
+      });
+
+      if (response.status === 401) {
+        clearToken();
+        throw new Error("Unauthorized. Please log in.");
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        const msg =
+          errorData?.detail && typeof errorData.detail === "string"
+            ? errorData.detail
+            : `Streaming failed with status ${response.status}`;
+        throw new Error(msg);
+      }
+
+      if (!response.body) {
+        throw new Error("Streaming response body is not readable.");
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const messages = buffer.split("\n\n");
+          buffer = messages.pop() || "";
+
+          for (const msg of messages) {
+            if (!msg.trim()) continue;
+            let eventName = "message";
+            let dataStr = "";
+
+            for (const line of msg.split("\n")) {
+              if (line.startsWith("event: ")) {
+                eventName = line.slice(7).trim();
+              } else if (line.startsWith("data: ")) {
+                dataStr = line.slice(6).trim();
+              }
+            }
+
+            if (dataStr === "[DONE]") {
+              break;
+            }
+
+            try {
+              const parsed = JSON.parse(dataStr);
+              if (eventName === "sources") {
+                handlers.onSources?.(parsed as StreamSourcesData);
+              } else if (eventName === "token") {
+                handlers.onToken?.(parsed.delta || "");
+              } else if (eventName === "done") {
+                handlers.onDone?.(parsed as StreamDoneData);
+              } else if (eventName === "error") {
+                const err = new Error(parsed.detail || "Stream generation error");
+                handlers.onError?.(err);
+                throw err;
+              }
+            } catch (e) {
+              if (eventName === "error") throw e;
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
     },
     async search(projectId: number, question: string, topK: number = 5, mode: string = "hybrid"): Promise<SourceCitation[]> {
       return request<SourceCitation[]>(`/projects/${projectId}/search`, {

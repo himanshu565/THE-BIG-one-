@@ -60,6 +60,7 @@ FastAPI Backend (http://localhost:8000/api/v1)
   ├─ /projects: Authenticated workspace CRUD scoped to current_user.id
   ├─ /documents: Multi-format text & PDF ingestion, magic byte checks, chunking
   ├─ /query: Hybrid retrieval (BM25 + Semantic Cosine + RRF) + Grounded LLM synthesis
+  ├─ /query/stream: Real-time Server-Sent Events (SSE) token streaming with live citation delivery
   └─ /health: Live database readiness probe (SELECT 1)
         │
         ▼
@@ -184,6 +185,7 @@ All protected endpoints require `Authorization: Bearer <token>`.
 
 ### Retrieval & RAG
 - `POST /api/v1/projects/{project_id}/query` — Execute hybrid search and generate grounded answer with citations.
+- `POST /api/v1/projects/{project_id}/query/stream` — Execute hybrid search and stream grounded answers token-by-token via Server-Sent Events (SSE).
 - `POST /api/v1/projects/{project_id}/search` — Return ranked source chunks without LLM synthesis.
 
 ### Evaluations & Telemetry
@@ -227,7 +229,7 @@ npm run lint
 ```
 
 ### 3. Backend Pytest Suite
-Runs 71 automated tests covering auth, security, repositories, chunking, dense neural embeddings, migrations, LLM providers, evaluations, database seeder, and the hybrid retrieval engine:
+Runs 78 automated tests covering auth, security, repositories, chunking, dense neural embeddings, real-time SSE streaming, migrations, LLM providers, evaluations, database seeder, and the hybrid retrieval engine:
 
 ```bash
 cd backend

@@ -157,3 +157,111 @@ def test_query_user_isolation(client: TestClient) -> None:
     assert client.post(f"/api/v1/projects/{project_id}/query", json={"question": "secret"}, headers=headers_b).status_code == 404
     assert client.post(f"/api/v1/projects/{project_id}/search", json={"question": "secret"}, headers=headers_b).status_code == 404
 
+
+def test_query_stream_endpoint(client: TestClient) -> None:
+    import json
+    headers = _create_user_and_token(client, "stream_user@vectorly.ai")
+
+    proj_res = client.post("/api/v1/projects", json={"name": "Streaming Hub"}, headers=headers)
+    assert proj_res.status_code == 201
+    project_id = proj_res.json()["id"]
+
+    client.post(
+        f"/api/v1/projects/{project_id}/documents",
+        json={
+            "name": "stream_guide.md",
+            "content": "Server-Sent Events provide real-time token streaming for LLM inference.",
+            "file_type": "md",
+        },
+        headers=headers,
+    )
+
+    res = client.post(
+        f"/api/v1/projects/{project_id}/query/stream",
+        json={"question": "How does real-time streaming work?", "top_k": 3, "mode": "hybrid"},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    assert "text/event-stream" in res.headers["content-type"]
+    assert res.headers.get("x-accel-buffering") == "no"
+    assert "no-cache" in res.headers.get("cache-control", "")
+
+    body = res.text
+    assert "event: sources" in body
+    assert "event: token" in body
+    assert "event: done" in body
+    assert "data: [DONE]" in body
+
+    # Parse individual events
+    events: dict[str, str] = {}
+    tokens: list[str] = []
+    for chunk in body.split("\n\n"):
+        if not chunk.strip():
+            continue
+        lines = chunk.strip().split("\n")
+        event_name = "message"
+        data_str = ""
+        for line in lines:
+            if line.startswith("event: "):
+                event_name = line[7:].strip()
+            elif line.startswith("data: "):
+                data_str = line[6:].strip()
+
+        if event_name == "token" and data_str:
+            tokens.append(json.loads(data_str)["delta"])
+        elif data_str and data_str != "[DONE]":
+            events[event_name] = data_str
+
+    assert len(tokens) > 0
+    reconstructed_answer = "".join(tokens)
+    assert "stream_guide.md" in reconstructed_answer
+
+    sources_data = json.loads(events["sources"])
+    assert len(sources_data["sources"]) > 0
+    assert sources_data["sources"][0]["document_name"] == "stream_guide.md"
+    assert sources_data["retrieval_mode"] == "hybrid"
+
+    done_data = json.loads(events["done"])
+    assert done_data["latency_ms"] >= 0
+    assert done_data["answer"] == reconstructed_answer
+
+
+def test_query_stream_empty_project(client: TestClient) -> None:
+    headers = _create_user_and_token(client, "stream_empty@vectorly.ai")
+    proj_res = client.post("/api/v1/projects", json={"name": "Empty Stream"}, headers=headers)
+    project_id = proj_res.json()["id"]
+
+    res = client.post(
+        f"/api/v1/projects/{project_id}/query/stream",
+        json={"question": "What documents exist?"},
+        headers=headers,
+    )
+    assert res.status_code == 200
+    body = res.text
+    assert "event: sources" in body
+    assert "event: done" in body
+    assert "could not find any relevant information" in body.lower()
+
+
+def test_query_stream_isolation_and_auth(client: TestClient) -> None:
+    headers_a = _create_user_and_token(client, "stream_a@vectorly.ai")
+    headers_b = _create_user_and_token(client, "stream_b@vectorly.ai")
+
+    proj_res = client.post("/api/v1/projects", json={"name": "Private Hub"}, headers=headers_a)
+    project_id = proj_res.json()["id"]
+
+    # 1. Unauthenticated request -> 401
+    res_no_auth = client.post(
+        f"/api/v1/projects/{project_id}/query/stream",
+        json={"question": "hello"},
+    )
+    assert res_no_auth.status_code == 401
+
+    # 2. Intruder user -> 404
+    res_intruder = client.post(
+        f"/api/v1/projects/{project_id}/query/stream",
+        json={"question": "hello"},
+        headers=headers_b,
+    )
+    assert res_intruder.status_code == 404
+

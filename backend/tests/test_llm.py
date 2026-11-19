@@ -149,6 +149,7 @@ def test_openai_llm_provider_streaming(sample_sources: list[SourceCitation]) -> 
     ]
 
     mock_client = MagicMock()
+    mock_client.__enter__.return_value = mock_client
     mock_client.stream.return_value.__enter__.return_value = mock_stream_response
 
     with patch("httpx.Client", return_value=mock_client):
@@ -172,6 +173,7 @@ def test_gemini_llm_provider_streaming(sample_sources: list[SourceCitation]) -> 
     ]
 
     mock_client = MagicMock()
+    mock_client.__enter__.return_value = mock_client
     mock_client.stream.return_value.__enter__.return_value = mock_stream_response
 
     with patch("httpx.Client", return_value=mock_client):
@@ -195,6 +197,7 @@ def test_ollama_llm_provider_streaming(sample_sources: list[SourceCitation]) -> 
     ]
 
     mock_client = MagicMock()
+    mock_client.__enter__.return_value = mock_client
     mock_client.stream.return_value.__enter__.return_value = mock_stream_response
 
     with patch("httpx.Client", return_value=mock_client):

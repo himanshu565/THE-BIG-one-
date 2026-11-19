@@ -95,6 +95,7 @@ All protected endpoints require an `Authorization: Bearer <jwt>` header.
 
 ### Retrieval & Grounded Synthesis (`/api/v1/projects/{project_id}`)
 - `POST .../query` — Hybrid RAG query (`question`, `top_k`, `mode="hybrid"|"bm25"|"semantic"`). Executes BM25 lexical ranking and cosine vector similarity fused through Reciprocal Rank Fusion (RRF $k=60$), then generates grounded synthesis with source citations via the configured LLM provider.
+- `POST .../query/stream` — Real-Time Streaming RAG query returning `text/event-stream` Server-Sent Events (SSE). Emits `event: sources` (retrieved citations), `event: token` (progressive token deltas), `event: done` (latency & complete answer), and `data: [DONE]` with `X-Accel-Buffering: no` unbuffered streaming.
 - `POST .../search` — Returns top-K ranked source chunks without LLM synthesis.
 
 ### Evaluations & Telemetry (`/api/v1/projects/{project_id}/evaluations`)
@@ -192,7 +193,7 @@ docker run -p 8000:8000 --env-file .env vectorly-backend
 
 ## Automated Pytest Suite
 
-71 automated tests cover authentication, project isolation, document ingestion, dense neural embeddings, LLM providers, migrations, security headers, sliding-window rate limiting, evaluations domain, database seeding, and database readiness checks:
+78 automated tests cover authentication, project isolation, document ingestion, dense neural embeddings, real-time SSE streaming, LLM providers, migrations, security headers, sliding-window rate limiting, evaluations domain, database seeding, and database readiness checks:
 
 ```bash
 pytest -v

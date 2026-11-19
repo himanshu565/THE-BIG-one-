@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   CheckCircle2,
+  Radio,
   RefreshCw,
   Search,
   SlidersHorizontal,
   Sparkles,
+  Square,
+  Zap,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { api, QueryResponse, SourceCitation } from "@/lib/api";
@@ -17,24 +20,100 @@ export function AskDataView({ setView }: { setView?: (view: View) => void }) {
   const { activeProject, projects, setActiveProject } = useAuth();
   const [question, setQuestion] = useState("");
   const [mode, setMode] = useState<"hybrid" | "bm25" | "semantic">("hybrid");
+  const [streamEnabled, setStreamEnabled] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [response, setResponse] = useState<QueryResponse | null>(null);
   const [searchResults, setSearchResults] = useState<SourceCitation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const handleAsk = async () => {
     if (!question.trim() || !activeProject) return;
     setLoading(true);
     setError(null);
     setSearchResults(null);
-    try {
-      const res = await api.retrieval.query(activeProject.id, question.trim(), 5, mode);
-      setResponse(res);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Query failed");
-    } finally {
-      setLoading(false);
+
+    if (streamEnabled) {
+      setIsStreaming(true);
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      setResponse({
+        question: question.trim(),
+        answer: "",
+        sources: [],
+        retrieval_mode: mode,
+        provider: "",
+        model: "",
+        latency_ms: 0,
+      });
+
+      try {
+        await api.retrieval.queryStream(
+          activeProject.id,
+          question.trim(),
+          {
+            signal: controller.signal,
+            onSources: (data) => {
+              setResponse((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      sources: data.sources,
+                      retrieval_mode: data.retrieval_mode,
+                      provider: data.provider,
+                      model: data.model,
+                    }
+                  : prev
+              );
+            },
+            onToken: (delta) => {
+              setResponse((prev) =>
+                prev ? { ...prev, answer: prev.answer + delta } : prev
+              );
+            },
+            onDone: (data) => {
+              setResponse((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      latency_ms: data.latency_ms,
+                      answer: data.answer || prev.answer,
+                    }
+                  : prev
+              );
+              setIsStreaming(false);
+            },
+            onError: (err) => {
+              setError(err.message);
+              setIsStreaming(false);
+            },
+          },
+          5,
+          mode
+        );
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === "AbortError") {
+          // Stream generation safely cancelled by user
+        } else {
+          setError(err instanceof Error ? err.message : "Streaming query failed");
+        }
+      } finally {
+        setLoading(false);
+        setIsStreaming(false);
+        abortControllerRef.current = null;
+      }
+    } else {
+      try {
+        const res = await api.retrieval.query(activeProject.id, question.trim(), 5, mode);
+        setResponse(res);
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Query failed");
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -106,17 +185,32 @@ export function AskDataView({ setView }: { setView?: (view: View) => void }) {
             className="min-h-[130px] w-full resize-none rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 text-xs text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-400 focus:bg-white disabled:opacity-40 transition"
           />
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-xs text-zinc-600">
-              <SlidersHorizontal size={13} /> Mode:
-              <select
-                value={mode}
-                onChange={(e) => setMode(e.target.value as "hybrid" | "bm25" | "semantic")}
-                className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-900 outline-none focus:border-zinc-400"
+            <div className="flex flex-wrap items-center gap-3 text-xs text-zinc-600">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal size={13} /> Mode:
+                <select
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value as "hybrid" | "bm25" | "semantic")}
+                  className="rounded-lg border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-900 outline-none focus:border-zinc-400"
+                >
+                  <option value="hybrid">Hybrid (BM25 + Semantic RRF)</option>
+                  <option value="bm25">Lexical BM25 Only</option>
+                  <option value="semantic">Semantic Vector Only</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStreamEnabled(!streamEnabled)}
+                className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition shadow-sm ${
+                  streamEnabled
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                    : "border-zinc-200 bg-zinc-50 text-zinc-500 hover:text-zinc-800"
+                }`}
+                title={streamEnabled ? "Real-time SSE token streaming enabled" : "Streaming disabled (batch retrieval)"}
               >
-                <option value="hybrid">Hybrid (BM25 + Semantic RRF)</option>
-                <option value="bm25">Lexical BM25 Only</option>
-                <option value="semantic">Semantic Vector Only</option>
-              </select>
+                <Zap size={12} className={streamEnabled ? "text-emerald-600 fill-emerald-500" : "text-zinc-400"} />
+                <span>{streamEnabled ? "SSE Stream" : "Batch"}</span>
+              </button>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -127,14 +221,24 @@ export function AskDataView({ setView }: { setView?: (view: View) => void }) {
                 {searchLoading ? <RefreshCw size={13} className="animate-spin" /> : <Search size={13} />}
                 {searchLoading ? "Retrieving..." : "Search Chunks Only"}
               </button>
-              <button
-                onClick={handleAsk}
-                disabled={!question.trim() || !activeProject || loading || searchLoading}
-                className="flex items-center gap-1.5 rounded-lg bg-black px-4 py-2 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40 shadow-sm"
-              >
-                {loading ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
-                {loading ? "Synthesizing..." : "Generate answer"}
-              </button>
+              {isStreaming ? (
+                <button
+                  type="button"
+                  onClick={() => abortControllerRef.current?.abort()}
+                  className="flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2 text-xs font-medium text-red-700 transition hover:bg-red-100 shadow-sm"
+                >
+                  <Square size={12} className="fill-current" /> Stop
+                </button>
+              ) : (
+                <button
+                  onClick={handleAsk}
+                  disabled={!question.trim() || !activeProject || loading || searchLoading}
+                  className="flex items-center gap-1.5 rounded-lg bg-black px-4 py-2 text-xs font-medium text-white transition hover:bg-zinc-800 disabled:opacity-40 shadow-sm"
+                >
+                  {loading ? <RefreshCw size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                  {loading ? (streamEnabled ? "Streaming..." : "Synthesizing...") : "Generate answer"}
+                </button>
+              )}
             </div>
           </div>
 
@@ -179,14 +283,49 @@ export function AskDataView({ setView }: { setView?: (view: View) => void }) {
             <div className="mt-6 border-t border-zinc-100 pt-5">
               <div className="mb-2.5 flex items-center justify-between text-xs text-zinc-900 font-semibold">
                 <span className="flex items-center gap-1.5">
-                  <CheckCircle2 size={15} className="text-emerald-600" /> Grounded Answer Ready
+                  {isStreaming ? (
+                    <>
+                      <span className="relative flex h-2.5 w-2.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                      </span>
+                      <span className="text-emerald-700 font-medium">Streaming Grounded Answer...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 size={15} className="text-emerald-600" />
+                      <span>Grounded Answer Ready</span>
+                    </>
+                  )}
                 </span>
-                <span className="font-mono text-[11px] text-zinc-500">Latency: {response.latency_ms}ms</span>
+                <span className="font-mono text-[11px] text-zinc-500">
+                  {isStreaming ? (
+                    <span className="inline-flex items-center gap-1 text-emerald-600">
+                      <Radio size={11} className="animate-pulse" /> Live SSE
+                    </span>
+                  ) : (
+                    `Latency: ${response.latency_ms}ms`
+                  )}
+                </span>
               </div>
-              <p className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 text-xs leading-6 text-zinc-800">{response.answer}</p>
+              <div className="rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 text-xs leading-6 text-zinc-800 relative">
+                {response.answer || (isStreaming ? <span className="text-zinc-400 italic">Synthesizing answer from retrieved chunks...</span> : "")}
+                {isStreaming && (
+                  <span className="inline-block h-3.5 w-1.5 translate-y-0.5 bg-emerald-600 animate-pulse ml-1" />
+                )}
+              </div>
               {response.sources.length > 0 && (
                 <div className="mt-4 space-y-2">
-                  <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-500">Retrieved Sources:</p>
+                  <div className="flex items-center justify-between">
+                    <p className="font-mono text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                      Retrieved Sources ({response.sources.length}):
+                    </p>
+                    {response.provider && (
+                      <span className="font-mono text-[10px] text-zinc-400">
+                        Provider: {response.provider} · {response.model}
+                      </span>
+                    )}
+                  </div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {response.sources.map((s, idx) => (
                       <div key={idx} className="rounded-xl border border-zinc-200 bg-white p-3 text-xs shadow-card">

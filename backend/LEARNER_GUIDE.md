@@ -39,6 +39,7 @@ GET    /api/v1/projects/{project_id}/documents/{document_id}
 DELETE /api/v1/projects/{project_id}/documents/{document_id}
 
 POST   /api/v1/projects/{project_id}/query
+POST   /api/v1/projects/{project_id}/query/stream
 POST   /api/v1/projects/{project_id}/search
 
 POST   /api/v1/projects/{project_id}/evaluations
@@ -194,10 +195,12 @@ backend/
 ### `app/services/llm.py`
 
 - `generate_grounded_answer(question, sources)`: produces an answer synthesizing context from the top retrieved chunks with explicit citation references.
+- `stream_grounded_answer(question, sources)`: yields progressive tokens from the configured provider (Mock, OpenAI, Gemini, Ollama) for real-time streaming.
 
 ### `app/api/retrieval.py`
 
 - `POST /api/v1/projects/{project_id}/query`: verifies project ownership, retrieves source chunks, generates grounded answer, and measures execution latency.
+- `POST /api/v1/projects/{project_id}/query/stream`: streams grounded answer tokens via Server-Sent Events (SSE) with unbuffered transmission (`X-Accel-Buffering: no`).
 - `POST /api/v1/projects/{project_id}/search`: retrieves ranked source chunks without LLM synthesis.
 
 ### `app/scripts/seed.py`
@@ -219,6 +222,7 @@ The roadmap phases status:
 9. [COMPLETED] Persistent evaluations domain, live latency telemetry, and limit/offset query pagination.
 10. [COMPLETED] Production database seeder CLI (`seed.py`) with reset and quiet flags.
 11. [COMPLETED] True dense neural embeddings (`Local`, `OpenAI`, `Gemini`, `Ollama`) stored on `document_chunks` and integrated into Hybrid RRF retrieval.
+12. [COMPLETED] Real-Time Streaming RAG (`POST /query/stream`) via Server-Sent Events (SSE) with progressive UI rendering and user cancellation.
 
 ## 7. How to run tests
 
@@ -226,4 +230,4 @@ The roadmap phases status:
 .\.venv\Scripts\python.exe -m pytest backend\tests -v
 ```
 
-All 71 backend tests verify project CRUD, auth, ingestion, dense neural embeddings, LLM providers, migrations, security headers, rate limiting, evaluations domain, database seeding, and readiness probes.
+All 78 backend tests verify project CRUD, auth, ingestion, dense neural embeddings, real-time SSE streaming, LLM providers, migrations, security headers, rate limiting, evaluations domain, database seeding, and readiness probes.

@@ -294,10 +294,11 @@ Every backend route is 100% wired to frontend client functions, UI views, and in
 | **12** | `GET /api/v1/projects/{id}/documents?limit=100&offset=0` | `backend/app/api/documents.py:133` | `api.documents.list` | **Documents Tab & Overview** | • Status filter dropdown (`All files`, `Ready`, `Processing`)<br>• Search input | Displays document name, file type, file size, chunk count, and processing status with pagination. |
 | **13** | `GET /api/v1/projects/{id}/documents/{doc_id}` | `backend/app/api/documents.py:158` | `api.documents.get` | **Documents Tab** | • Document title click<br>• `Inspect chunks` (Eye icon) button | Opens the **Document & Chunks Inspector Modal**, showing every chunk with token counts and raw content. |
 | **14** | `DELETE /api/v1/projects/{id}/documents/{doc_id}` | `backend/app/api/documents.py:188` | `api.documents.delete` | **Documents Tab** | Document row Trash icon button | Deletes document and cleans up all associated chunk embeddings. |
-| **15** | `POST /api/v1/projects/{id}/query` | `backend/app/api/retrieval.py:30` | `api.retrieval.query` | **Ask your data & Overview** | • `Generate answer` button<br>• `Run retrieval` button | Executes hybrid RAG search (BM25 + Dense RRF fusion) and synthesizes a grounded answer with citations. |
-| **16** | `POST /api/v1/projects/{id}/search` | `backend/app/api/retrieval.py:65` | `api.retrieval.search` | **Ask your data Tab** | `Search Chunks Only` action button | Retrieves top-K source chunks directly with similarity scores without waiting for LLM synthesis. |
-| **17** | `POST /api/v1/projects/{id}/evaluations` | `backend/app/api/evaluations.py:27` | `api.evaluations.create` | **Evaluations Tab** | `Run live benchmark` button | Persists automated benchmark run (latency, mode, chunks found, status) to the relational database. |
-| **18** | `GET /api/v1/projects/{id}/evaluations?limit=50&offset=0` | `backend/app/api/evaluations.py:53` | `api.evaluations.list` | **Evaluations Tab** | Auto-loads on tab mount & active project change | Displays historical latency and retrieval coverage telemetry runs with pagination. |
+| **15** | `POST /api/v1/projects/{id}/query` | `backend/app/api/retrieval.py:30` | `api.retrieval.query` | **Ask your data & Overview** | • `Generate answer` button (Batch)<br>• `Run retrieval` button | Executes hybrid RAG search (BM25 + Dense RRF fusion) and synthesizes a grounded answer with citations. |
+| **16** | `POST /api/v1/projects/{id}/query/stream` | `backend/app/api/retrieval.py:84` | `api.retrieval.queryStream` | **Ask your data Tab** | `Generate answer` button (SSE Stream mode) | Streams grounded answer tokens in real-time via Server-Sent Events (SSE) with live citation rendering and cancel button. |
+| **17** | `POST /api/v1/projects/{id}/search` | `backend/app/api/retrieval.py:175` | `api.retrieval.search` | **Ask your data Tab** | `Search Chunks Only` action button | Retrieves top-K source chunks directly with similarity scores without waiting for LLM synthesis. |
+| **18** | `POST /api/v1/projects/{id}/evaluations` | `backend/app/api/evaluations.py:27` | `api.evaluations.create` | **Evaluations Tab** | `Run live benchmark` button | Persists automated benchmark run (latency, mode, chunks found, status) to the relational database. |
+| **19** | `GET /api/v1/projects/{id}/evaluations?limit=50&offset=0` | `backend/app/api/evaluations.py:53` | `api.evaluations.list` | **Evaluations Tab** | Auto-loads on tab mount & active project change | Displays historical latency and retrieval coverage telemetry runs with pagination. |
 
 ---
 
@@ -427,6 +428,40 @@ FastAPI `api/retrieval.py` -> `search_project_chunks()`
   │
   ▼
 Next.js renders Direct Chunk Retrieval card with rank numbers, scores, and text previews
+```
+
+---
+
+### Flow D2: Real-Time Streaming RAG via Server-Sent Events (POST /query/stream)
+
+```text
+User enters question, leaves "SSE Stream" enabled, and clicks "Generate answer"
+  │
+  ▼
+Next.js `lib/api.ts` -> `api.retrieval.queryStream()`
+  ├─ Initializes AbortController for user cancellation
+  ├─ Sends HTTP POST to `/api/v1/projects/{project_id}/query/stream` with Authorization header
+  │
+  ▼
+FastAPI `api/retrieval.py` -> `query_project_knowledge_base_stream()`
+  ├─ Verifies project ownership & applies prompt sanitization guard
+  ├─ Executes hybrid retrieval (`retrieve_chunks`), fetching ranked source chunks
+  ├─ Returns `StreamingResponse(media_type="text/event-stream")`
+  │    Headers: Cache-Control: no-cache, X-Accel-Buffering: no (disables proxy buffering)
+  │
+  ├─ [SSE Event 1] `event: sources`
+  │    Data: {"sources": [...], "retrieval_mode": "hybrid", "provider": "mock", "model": "local-development"}
+  │    ▼ Next.js onSources: Immediately renders retrieved citations and source metadata
+  │
+  ├─ [SSE Events 2..N] `event: token`
+  │    Data: {"delta": "Based "} -> {"delta": "on "} -> ...
+  │    ▼ Next.js onToken: Progressively streams tokens into the UI with glowing cursor
+  │
+  ├─ [SSE Event N+1] `event: done`
+  │    Data: {"latency_ms": 118, "answer": "..."}
+  │    ▼ Next.js onDone: Marks stream complete, displays final latency, hides cursor
+  │
+  └─ [SSE Terminal] `data: [DONE]`
 ```
 
 ---
@@ -639,7 +674,7 @@ The database uses SQLAlchemy 2.0 ORM models backed by Alembic migrations:
 Vectorly maintains comprehensive automated test coverage across both backend and frontend:
 
 ### Backend Pytest Suite (`backend/tests/`)
-71 automated tests covering:
+78 automated tests covering:
 - `test_security.py`: OWASP security headers, sliding-window rate limiting (HTTP 429), dangerous file type rejection, file size limits (HTTP 413), path-traversal sanitization, prompt injection filters, and trusted proxy IP spoofing defense.
 - `test_embedding.py`: Pluggable dense vector providers (`LocalEmbeddingProvider`, `OpenAIEmbeddingProvider`, `GeminiEmbeddingProvider`, `OllamaEmbeddingProvider`), L2 unit normalization, determinism, cosine similarity edge cases, and provider factory validation.
 - `test_evaluations_api.py`: Automated retrieval evaluations recording, cross-tenant project scoping, validation errors, and limit/offset query pagination.
@@ -650,8 +685,8 @@ Vectorly maintains comprehensive automated test coverage across both backend and
 - `test_projects_api.py`: User-scoped project CRUD, cross-user authorization barriers, and pagination query params.
 - `test_documents_api.py`: File upload with chunked stream bounds, text document creation, deletion, multi-chunk verification, magic byte verification, executable rejection, and pagination.
 - `test_ingestion.py`: Token estimation, paragraph chunking with sentence overlap, dense vector chunk embedding persistence, PDF text extraction via pypdf, corrupted PDF rejection.
-- `test_llm.py`: MockLLMProvider, OpenAILLMProvider, GeminiLLMProvider, OllamaLLMProvider, provider factory, prompt formatting.
-- `test_retrieval.py`: BM25 scoring, dense semantic vector cosine similarity, RRF rank combination, grounded answer synthesis.
+- `test_llm.py`: MockLLMProvider, OpenAILLMProvider, GeminiLLMProvider, OllamaLLMProvider, real-time token streaming (`stream_grounded_answer`), provider factory, prompt formatting.
+- `test_retrieval.py`: BM25 scoring, dense semantic vector cosine similarity, RRF rank combination, grounded answer synthesis, real-time Server-Sent Events (SSE) streaming endpoint (`/query/stream`), source citation events, token events, completion done event.
 - `test_migrations.py`: Alembic upgrade/downgrade consistency across all revisions including `evaluation_runs` and `document_chunks.embedding`.
 
 ```bash
