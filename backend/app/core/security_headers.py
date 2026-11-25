@@ -26,10 +26,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # 5. Prevent referrer leakage on cross-origin requests
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
-        # 6. Content Security Policy (restricts resources and disallows framing)
-        response.headers["Content-Security-Policy"] = (
-            "default-src 'self'; frame-ancestors 'none'; object-src 'none';"
-        )
+        # 6. Content Security Policy (allow Swagger UI / ReDoc CDN assets on docs routes; strict elsewhere)
+        if request.url.path in ("/docs", "/docs/oauth2-redirect", "/redoc"):
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                "img-src 'self' data: https://fastapi.tiangolo.com https://cdn.jsdelivr.net; "
+                "frame-ancestors 'none'; object-src 'none';"
+            )
+        else:
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; frame-ancestors 'none'; object-src 'none';"
+            )
 
         # 7. Permissions Policy: Restricts access to sensitive device hardware APIs
         response.headers["Permissions-Policy"] = (
