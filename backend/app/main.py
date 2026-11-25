@@ -73,6 +73,18 @@ app.include_router(retrieval_router, prefix="/api/v1")
 app.include_router(evaluations_router, prefix="/api/v1")
 
 
+@app.get("/")
+def root() -> dict[str, str]:
+    """Return API service metadata and navigation links."""
+    return {
+        "service": "Vectorly API",
+        "status": "running",
+        "version": "0.1.0",
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
 @app.get("/health")
 def health(response: Response, db: Session = Depends(get_db)) -> dict[str, Any]:
     """Return platform and database readiness status."""
