@@ -6,10 +6,16 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Docker](https://img.shields.io/badge/Docker-Multi--Stage-2496ED.svg?style=flat&logo=docker&logoColor=white)](https://www.docker.com/)
 [![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF.svg?style=flat&logo=github-actions&logoColor=white)](https://github.com/)
-[![Tests](https://img.shields.io/badge/Tests-71_Passed-success.svg)](https://pytest.org)
+[![Tests](https://img.shields.io/badge/Tests-78_Passed-success.svg)](https://pytest.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 **Vectorly** is a production-grade, full-stack AI infrastructure platform designed for **reliable, citation-backed knowledge retrieval (RAG)**. It pairs a high-performance **FastAPI** backend with an intuitive, modular **Next.js 14** workspace.
+
+### Live Deployment
+- **Frontend (Vercel):** https://the-big-one-nu.vercel.app/
+- **Backend API & Swagger Docs (Render):** https://the-big-one-yv0g.onrender.com/docs
+- **Health Probe:** https://the-big-one-yv0g.onrender.com/health
+- **Instant Demo Access:** Click **⚡ 1-Click Instant Demo Login** on the sign-in screen (or use `admin@vectorly.ai` / `AdminPass123!`). *(Render's free tier may take ~30–50s to wake on the first request.)*
 
 > 📚 **Deep Dive Guide**: Want to understand every architectural decision, why we built it this way, and how features work in the background? Read our in-depth pedagogical guide: **[`TEACH_ME.md`](./TEACH_ME.md)**.
 
