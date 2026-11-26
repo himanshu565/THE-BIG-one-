@@ -49,6 +49,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (isMounted) setLoading(false);
     }, 1200);
 
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    async function probeHealth(allowRetry: boolean = false) {
+      try {
+        const health = await api.health({ mode: "cors" });
+        if ((health?.status === "ok" || health?.status === "healthy") && isMounted) {
+          setBackendOnline(true);
+          return;
+        }
+      } catch {
+        if (isMounted) setBackendOnline(false);
+      }
+      if (allowRetry && isMounted) {
+        retryTimer = setTimeout(() => {
+          void probeHealth(false);
+        }, 6000);
+      }
+    }
+
     async function init() {
       // 1. Instant unblock for unauthenticated users
       const token = getToken();
@@ -58,28 +77,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
         }
         // Probe backend health in the background without blocking the UI
-        try {
-          const health = await api.health({ mode: "cors" });
-          if ((health?.status === "ok" || health?.status === "healthy") && isMounted) {
-            setBackendOnline(true);
-          }
-        } catch {
-          if (isMounted) setBackendOnline(false);
-        }
+        await probeHealth(true);
         return;
       }
 
       // 2. Concurrently check health and authenticate user session
-      const healthPromise = api
-        .health({ mode: "cors" })
-        .then((h) => {
-          if ((h?.status === "ok" || h?.status === "healthy") && isMounted) {
-            setBackendOnline(true);
-          }
-        })
-        .catch(() => {
-          if (isMounted) setBackendOnline(false);
-        });
+      const healthPromise = probeHealth(true);
 
       try {
         const profile = await Promise.race([
@@ -120,12 +123,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       isMounted = false;
       clearTimeout(safetyTimer);
+      if (retryTimer) clearTimeout(retryTimer);
     };
   }, []);
 
   async function refreshProjects() {
     try {
       const userProjects = await api.projects.list();
+      setBackendOnline(true);
       setProjects(userProjects);
       if (userProjects.length > 0) {
         setActiveProject((prev) => {
@@ -144,6 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function login(email: string, pass: string) {
     await api.auth.login(email, pass);
     const profile = await api.auth.getMe();
+    setBackendOnline(true);
     setUser(profile);
     await refreshProjects();
   }
